@@ -1,0 +1,83 @@
+#! /usr/bin/vvp
+:ivl_version "11.0 (stable)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision - 12;
+:vpi_module "/usr/lib/x86_64-linux-gnu/ivl/system.vpi";
+:vpi_module "/usr/lib/x86_64-linux-gnu/ivl/vhdl_sys.vpi";
+:vpi_module "/usr/lib/x86_64-linux-gnu/ivl/vhdl_textio.vpi";
+:vpi_module "/usr/lib/x86_64-linux-gnu/ivl/v2005_math.vpi";
+:vpi_module "/usr/lib/x86_64-linux-gnu/ivl/va_math.vpi";
+S_0x5b0e75f77360 .scope module, "tb_instruction_decoder" "tb_instruction_decoder" 2 5;
+ .timescale -9 -12;
+v0x5b0e75f8dad0_0 .net "func3", 2 0, L_0x5b0e75f8e250;  1 drivers
+v0x5b0e75f8dbb0_0 .net "func7", 6 0, L_0x5b0e75f8e500;  1 drivers
+v0x5b0e75f8dc50_0 .var "instruction", 31 0;
+v0x5b0e75f8dcf0_0 .net "opcode", 6 0, L_0x5b0e75f8e020;  1 drivers
+v0x5b0e75f8dd90_0 .net "rd", 4 0, L_0x5b0e75f8e160;  1 drivers
+v0x5b0e75f8de80_0 .net "rs1", 4 0, L_0x5b0e75f8e340;  1 drivers
+v0x5b0e75f8df50_0 .net "rs2", 4 0, L_0x5b0e75f8e410;  1 drivers
+S_0x5b0e75f774f0 .scope module, "uut" "instruction_decoder" 2 14, 3 1 0, S_0x5b0e75f77360;
+ .timescale -9 -12;
+    .port_info 0 /INPUT 32 "instruction";
+    .port_info 1 /OUTPUT 7 "opcode";
+    .port_info 2 /OUTPUT 5 "rd";
+    .port_info 3 /OUTPUT 3 "func3";
+    .port_info 4 /OUTPUT 5 "rs1";
+    .port_info 5 /OUTPUT 5 "rs2";
+    .port_info 6 /OUTPUT 7 "func7";
+v0x5b0e75f3bcf0_0 .net "func3", 2 0, L_0x5b0e75f8e250;  alias, 1 drivers
+v0x5b0e75f8d480_0 .net "func7", 6 0, L_0x5b0e75f8e500;  alias, 1 drivers
+v0x5b0e75f8d560_0 .net "instruction", 31 0, v0x5b0e75f8dc50_0;  1 drivers
+v0x5b0e75f8d620_0 .net "opcode", 6 0, L_0x5b0e75f8e020;  alias, 1 drivers
+v0x5b0e75f8d700_0 .net "rd", 4 0, L_0x5b0e75f8e160;  alias, 1 drivers
+v0x5b0e75f8d830_0 .net "rs1", 4 0, L_0x5b0e75f8e340;  alias, 1 drivers
+v0x5b0e75f8d910_0 .net "rs2", 4 0, L_0x5b0e75f8e410;  alias, 1 drivers
+L_0x5b0e75f8e020 .part v0x5b0e75f8dc50_0, 0, 7;
+L_0x5b0e75f8e160 .part v0x5b0e75f8dc50_0, 7, 5;
+L_0x5b0e75f8e250 .part v0x5b0e75f8dc50_0, 12, 3;
+L_0x5b0e75f8e340 .part v0x5b0e75f8dc50_0, 15, 5;
+L_0x5b0e75f8e410 .part v0x5b0e75f8dc50_0, 20, 5;
+L_0x5b0e75f8e500 .part v0x5b0e75f8dc50_0, 25, 7;
+    .scope S_0x5b0e75f77360;
+T_0 ;
+    %vpi_call 2 26 "$dumpfile", "tb_instruction_decoder.vcd" {0 0 0};
+    %vpi_call 2 27 "$dumpvars", 32'sb00000000000000000000000000000000, S_0x5b0e75f77360 {0 0 0};
+    %pushi/vec4 23759411, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 1097501235, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23775795, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23783987, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23788083, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23763507, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23779891, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 1097521715, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23767603, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %pushi/vec4 23771699, 0, 32;
+    %store/vec4 v0x5b0e75f8dc50_0, 0, 32;
+    %delay 10000, 0;
+    %vpi_call 2 62 "$finish" {0 0 0};
+    %end;
+    .thread T_0;
+# The file index is used to find the file name in the following table.
+:file_names 4;
+    "N/A";
+    "<interactive>";
+    "tb_instruction_decoder.v";
+    "./instruction_decoder.v";
