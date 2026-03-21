@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-`include "ins_mem.v"
+// `include "ins_mem.v"
 `default_nettype none
 
 module tb_ins_mem;

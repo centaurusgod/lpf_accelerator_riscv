@@ -1,6 +1,6 @@
 /*
 a module which takes the 32-bit input instruction and extracts the 12-bit immediate
-data field depending on the type of instruction (I, S, B, U, J) and outputs the sign-extended 64-bit immediate data
+data field depending on the type of instruction (I, S, B, U, J) and outputs the sign-extended 32-bit immediate data
 */
 module imm_data_gen (
     input [31:0] instruction,
