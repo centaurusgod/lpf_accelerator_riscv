@@ -38,7 +38,7 @@ module imm_data_gen (
                 instruction[7], //11th bit
                 instruction[30:25], // 10-5 bits
                 instruction[11:8], // 4-1 bits
-                1'b0 // 0th bit just appended
+                1'b0 // 0th bit just appended // implicit left shift // so donot add left_shift_one module
             };
 
             // J-type instructions
