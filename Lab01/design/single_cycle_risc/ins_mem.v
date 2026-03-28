@@ -23,12 +23,16 @@ module ins_mem (
 
     always @(*) begin
         case (address)
-            32'h00: instruction = 32'h06400113; // addi x2, x0, 100
-            32'h04: instruction = 32'h00000093; // addi x1, x0, 0
-            32'h08: instruction = 32'h00108093; // loop: addi x1, x1, 1
-            32'h0C: instruction = 32'h00208663; // beq x1, x2, +8  (to done)
-            32'h10: instruction = 32'hFE000CE3; // beq x0, x0, -8  (to loop)
-            32'h14: instruction = 32'h00000013; // done: nop
+            // addi x1, x0, 2
+            // sw x1, 0(x0)
+            // lw x2, 0(x0)
+            // add x1, x1, x2
+            32'h00: instruction = 32'h00200093;
+            32'h04: instruction = 32'h00102023;
+            32'h08: instruction = 32'h00002103;
+            32'h0C: instruction = 32'h002080b3;
+
+
             
             // Default to NOP (addi x0, x0, 0) for all other addresses
             // This prevents 'x' from entering your datapath
@@ -37,22 +41,3 @@ module ins_mem (
     end
     
 endmodule
-
-// write all the memory instantiation address logic here
-
-// 1. Test for alu result by adding immediate values
-            // 32'd0  : instruction = 32'h01900093; // addi x1, x0, 25
-            // 32'd4  : instruction = 32'h03200113; // addi x2, x0, 50
-            // 32'd8  : instruction = 32'h00A08193; // addi x3, x1, 10
-
-// 2. Test for subtraction operation
-// first load the immediate values into the register by performing add
-            // 32'd0  : instruction = 32'h01900093; // addi x1, x0, 100
-            // 32'd4  : instruction = 32'h03200113; // addi x2, x0, 90
-            // 32'd8  : instruction = 32'b00000000; // sub x3, x1, x2 (result should be 10)
-
-// 3. test for loop
-            // 32'h00: instruction = 32'h06400113; // addi x2, x0, 100
-            // 32'h04: instruction = 32'h00000093; // addi x1, x0, 0
-            // 32'h08: instruction = 32'h00108093; // loop: addi x1, x1, 1
-            // 32'h0C: instruction = 32'hFE20CEE3; // blt x1, x2, loop (Offset -4)

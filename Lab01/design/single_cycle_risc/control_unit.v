@@ -61,7 +61,7 @@ module control_unit (
                 branch = 1'b0;
                 alu_op =  2'b00;
             end
-            // Sb Type (beq)
+            // B Type
             7'b1100011 : begin
                 alu_src = 1'b0;
                 mem_to_reg = 1'bx;

@@ -34,7 +34,6 @@ module imm_data_gen (
             // B-type instructions
             7'b1100011: imm_data = {
                 {20{instruction[31]}}, //12thbit sign extended
-                instruction[31], //12 bit
                 instruction[7], //11th bit
                 instruction[30:25], // 10-5 bits
                 instruction[11:8], // 4-1 bits

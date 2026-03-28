@@ -6,9 +6,9 @@ module single_cycle_processor (
     output [3:0] alu_operation_cu,
     output [31:0] instruction_from_ins_mem,
     output [31:0] immediate_value_from_imm_gen,
-    output [31:0] source_register_one,
-    output [31:0] source_register_two,
-    output [31:0] destination_register,
+    output [4:0] source_register_one,
+    output [4:0] source_register_two,
+    output [4:0] destination_register,
 
     output [31:0] alu_source_a,
     output [31:0] alu_source_b,
@@ -16,7 +16,11 @@ module single_cycle_processor (
     output taking_branch,
     output is_result_zero,
 
-    output [31:0] next_branch_address
+    output [31:0] next_branch_address,
+
+    output branch_flag_out,
+
+    output [31:0] next_pc_input
 
 );
 
@@ -53,14 +57,13 @@ module single_cycle_processor (
     wire mem_write;
     wire alu_src;
 
-    
-
-
     // alu
     wire [31:0] alu_src_mux_out;
-    wire zero_flag;
     wire [31:0] alu_result;
     wire c_out;
+    wire zero_flag;
+    wire overflow_flag;
+    wire sign_flag;
 
     // alu_control
     // alu_op is for control units, alu_operation is for alu
@@ -73,6 +76,9 @@ module single_cycle_processor (
     // op from branch address adders
     wire [31:0] branch_address;
     wire [31:0] next_pc;
+
+    // output from branch control unit
+    wire branch_flag;
 
     // and gate  perform_branch = branch & zero_flag_from_alu
     wire perform_branch;
@@ -156,8 +162,10 @@ module single_cycle_processor (
         .b(alu_src_mux_out),
         .alu_op(alu_operation),
         .result(alu_result),
+        .overflow_flag(overflow_flag),
         .c_out(c_out),
-        .zero(zero_flag)
+        .zero_flag(zero_flag),
+        .sign_flag(sign_flag)
     );
 
     assign alu_source_a = read_data1;
@@ -168,7 +176,8 @@ module single_cycle_processor (
         .clk(clk),
         .mem_read(mem_read),
         .mem_write(mem_write),
-        .write_data(read_data2)
+        .write_data(read_data2),
+        .read_data(read_data)
     );
 
     // either to save value from data memory like lw instruction
@@ -190,7 +199,17 @@ module single_cycle_processor (
         .out(branch_address)
     );
 
-    assign perform_branch = zero_flag & branch;
+    // branch control unit
+    branch_control bcu_uut(
+        .zero_flag(zero_flag),
+        .overflow_flag(overflow_flag),
+        .c_out(c_out),
+        .sign_flag(sign_flag),
+        .func3(func3),
+        .branch_flag(branch_flag)
+    );
+
+    assign perform_branch = branch & branch_flag;
     
     // decides to update the pc=pc+4, or a branch address
     mux pc_update_selector(
@@ -200,11 +219,10 @@ module single_cycle_processor (
         .data_out(pc_in)
     ); 
 
+    assign branch_flag_out = branch_flag;
     assign taking_branch = perform_branch;
     assign is_result_zero = zero_flag;
-    
     assign next_branch_address =  branch_address;
-
     assign alu_operation_cu = alu_operation;
     assign result_of_alu = alu_result;
     assign address_of_pc = pc_out;
@@ -213,6 +231,7 @@ module single_cycle_processor (
     assign source_register_one = rs1;
     assign source_register_two = rs2;
     assign destination_register = rd;
+    assign next_pc_input = pc_in;
 
     
 endmodule

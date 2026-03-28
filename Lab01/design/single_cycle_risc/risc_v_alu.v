@@ -4,9 +4,12 @@ module risc_v_alu (
     input [31:0] a,
     input [31:0] b,
     input [3:0] alu_op,
+    
     output reg [31:0] result,
     output reg c_out,
-    output reg zero
+    output reg zero_flag,
+    output reg overflow_flag,
+    output reg sign_flag
 );
     // trick to get the value of c_out from MSB
     // we will use MSB to calculate c_out, result = [31:0] tmp_result 
@@ -22,8 +25,7 @@ module risc_v_alu (
     assign a_invert = 1'b0;
 
     assign a_final = a_invert ? ~a : a;
-    assign b_final = b_invert ? ~b : b;
-   
+    assign b_final = b_invert ? ~b : b;   
 
 
    // for testing, just use 0000 for addition and 0001 for subtraction
@@ -32,9 +34,8 @@ module risc_v_alu (
    // for revise the actual bits that comes to alu through control unit and write operations based on it
 
     always @(*) begin
-
-        c_out = 1'b0;
         tmp_result = 33'b0;
+        c_out = 1'b0;
 
         case (alu_op)
             // add and sub is handled in single block (guided by b_invert)
@@ -44,9 +45,9 @@ module risc_v_alu (
                 result = tmp_result[31:0];
                 c_out = tmp_result[32];
             end
-            // 4'b0010 : begin
-            //     result = a_final & b_final;
-            // end
+            4'b0000 : begin
+                result = a_final & b_final;
+            end
             4'b0011 : begin
                 result = a_final | b_final;
                 
@@ -57,7 +58,11 @@ module risc_v_alu (
             end 
         endcase
 
-        zero = (result==32'b0);
+        // if both number have same sign,
+        // but the result is having different sign than the inputs
+        overflow_flag = (a[31]==b[31]) && (result[31]!=a[31]);
+        zero_flag = (result==32'b0);
+        sign_flag = result[31];
     
     end
 
