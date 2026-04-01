@@ -3,12 +3,13 @@
 module risc_v_alu (
     input [31:0] a,
     input [31:0] b,
-    input a_invert,
-    input b_invert,
     input [3:0] alu_op,
+    
     output reg [31:0] result,
     output reg c_out,
-    output reg zero
+    output reg zero_flag,
+    output reg overflow_flag,
+    output reg sign_flag
 );
     // trick to get the value of c_out from MSB
     // we will use MSB to calculate c_out, result = [31:0] tmp_result 
@@ -16,10 +17,15 @@ module risc_v_alu (
 
     wire [31:0] a_final;
     wire [31:0] b_final;
+    wire a_invert;
+    wire b_invert;
+
+    // 3rd bit of alu_op may indicate subtraction operation
+    assign b_invert = alu_op[2];
+    assign a_invert = 1'b0;
 
     assign a_final = a_invert ? ~a : a;
-    assign b_final = b_invert ? ~b : b;
-   
+    assign b_final = b_invert ? ~b : b;   
 
 
    // for testing, just use 0000 for addition and 0001 for subtraction
@@ -28,19 +34,18 @@ module risc_v_alu (
    // for revise the actual bits that comes to alu through control unit and write operations based on it
 
     always @(*) begin
-
-        c_out = 1'b0;
         tmp_result = 33'b0;
+        c_out = 1'b0;
 
         case (alu_op)
             // add and sub is handled in single block (guided by b_invert)
-            4'b0000 : begin
+            4'b0010, 4'b0110 : begin
                 // cin to lsb = b_invert
                 tmp_result = {1'b0, a_final} + {1'b0, b_final} + b_invert;
                 result = tmp_result[31:0];
                 c_out = tmp_result[32];
             end
-            4'b0010 : begin
+            4'b0000 : begin
                 result = a_final & b_final;
             end
             4'b0011 : begin
@@ -48,13 +53,17 @@ module risc_v_alu (
                 
             end
             default: begin
-                result = 32'bx;
-                c_out = 1'bx;
-                zero = 1'bx;
+                result = 32'b0;
+                c_out = 1'b0;
             end 
         endcase
 
-        zero = (result==32'b0);
+        // if both number have same sign,
+        // but the result is having different sign than the inputs
+        // overflow currently being used for branch instruction only (so sub)
+        overflow_flag = (a[31]==b_final[31]) && (result[31]!=a[31]);
+        zero_flag = (result==32'b0);
+        sign_flag = result[31];
     
     end
 
