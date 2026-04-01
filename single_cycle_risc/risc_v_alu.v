@@ -60,7 +60,8 @@ module risc_v_alu (
 
         // if both number have same sign,
         // but the result is having different sign than the inputs
-        overflow_flag = (a[31]==b[31]) && (result[31]!=a[31]);
+        // overflow currently being used for branch instruction only (so sub)
+        overflow_flag = (a[31]==b_final[31]) && (result[31]!=a[31]);
         zero_flag = (result==32'b0);
         sign_flag = result[31];
     

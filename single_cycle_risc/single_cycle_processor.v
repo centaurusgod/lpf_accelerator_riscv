@@ -220,7 +220,8 @@ module single_cycle_processor (
     ); 
 
     assign branch_flag_out = branch_flag;
-    assign taking_branch = perform_branch;
+    //assign taking_branch = perform_branch;
+    assign taking_branch = branch;
     assign is_result_zero = zero_flag;
     assign next_branch_address =  branch_address;
     assign alu_operation_cu = alu_operation;

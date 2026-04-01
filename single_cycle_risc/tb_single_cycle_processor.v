@@ -48,14 +48,39 @@ module tb_single_cycle_processor;
 
     always #5 clk = ~clk;
 
+    initial begin
+
+        // hex -> instuctions mapping log is present in test_instructions/hex/ins_mem_loads.log
+
+        // load instructions into instruction memory
+        //$readmemh("test_instructions_hex/sw_lw.hex", uut.im.mem_cell);
+
+        // load instructions for beq
+        // $readmemh("test_instructions_hex/beq.hex", uut.im.mem_cell);
+
+        // load instructions for bge
+        // $readmemh("test_instructions_hex/bge.hex", uut.im.mem_cell);
+
+        // load instructions for blt
+       // $readmemh("test_instructions_hex/blt.hex", uut.im.mem_cell);
+
+        // load instructions for bltu
+        // $readmemh("test_instructions_hex/bltu.hex", uut.im.mem_cell);
+
+        // instructions for bgeu
+        //$readmemh("test_instructions_hex/bgeu.hex", uut.im.mem_cell);
+
+
+    end
+
     always @(posedge clk) begin
-        // $display("Time = %0t | PC = %h | Instruction = %h | Funct3 = %b | ALU Result = %d | Branch Flag: %b", 
-        //           $time, address_of_pc, instruction_from_ins_mem, instruction_from_ins_mem[14:12], result_of_alu, branch_flag_out);
+        $display("Time = %0t | PC = %h | Instruction = %h | Funct3 = %b | ALU Result = %d | CU Branch: %b |  Branch Control Unit: %b", 
+                  $time, address_of_pc, instruction_from_ins_mem, instruction_from_ins_mem[14:12], result_of_alu, taking_branch, branch_flag_out);
 
         // test for load and store instructions
         // only display instructions, and (ALU RESULT | Data Memory Address)
-            $display("Time = %0t | PC = %h | Instruction = %h | (ALU Result , Data Memory Address) = %d", 
-                    $time, address_of_pc, instruction_from_ins_mem, result_of_alu);
+            // $display("Time = %0t | PC = %h | Instruction = %h | (ALU Result , Data Memory Address) = %d", 
+            //         $time, address_of_pc, instruction_from_ins_mem, result_of_alu);
     end
 
     // Test sequence
@@ -66,7 +91,7 @@ module tb_single_cycle_processor;
         #15;
         reset = 0;
 
-        #30;
+        #1000;
 
         $finish;
     end

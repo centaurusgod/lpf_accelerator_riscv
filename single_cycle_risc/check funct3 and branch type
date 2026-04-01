@@ -1,0 +1,15 @@
+check funct3 and branch type
+for beq funct3 = 000
+for bne funct3 = 001
+for blt funct3 = 100
+for bge funct3 = 101
+for bltu funct3 = 110
+for bgeu funct3 = 111
+
+if branch:
+    beq and zero flag = take_branch
+    bne and non_zero flag = take_branch
+    blt and less_than flag = take_branch
+    bge and greater_equal flag = take_branch
+    bltu and unsigned_less_than flag = take_branch
+    bgeu and unsigned_greater_equal flag = take_branch
