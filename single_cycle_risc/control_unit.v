@@ -42,7 +42,7 @@ module control_unit (
             // don't know what below are
             // maybe following lab, i chosed for 64 bit
 
-            // I-type id
+            // I-type Load
             7'b0000011 : begin
                 alu_src = 1'b1;
                 mem_to_reg = 1'b1;
@@ -53,7 +53,7 @@ module control_unit (
                 alu_op =  2'b00;
             end
 
-            // I-type sd
+            // I-type Store
             7'b0100011 : begin
                 alu_src = 1'b1;
                 mem_to_reg = 1'bx;

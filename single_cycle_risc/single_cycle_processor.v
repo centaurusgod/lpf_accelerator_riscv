@@ -20,7 +20,10 @@ module single_cycle_processor (
 
     output branch_flag_out,
 
-    output [31:0] next_pc_input
+    output [31:0] next_pc_input,
+
+    // only to simulate in digital js
+    output signed [15:0] dig_lpf_y_out
 
 );
 
@@ -171,13 +174,17 @@ module single_cycle_processor (
     assign alu_source_a = read_data1;
     assign alu_source_b = alu_src_mux_out;
 
-    data_memory dm(
-        .address(alu_result),
+    // memory mapped wrapper
+    mmio_wrapper mmio(
         .clk(clk),
+        .rst(reset),
+        .func3(func3),
+        .address(alu_result),
         .mem_read(mem_read),
         .mem_write(mem_write),
         .write_data(read_data2),
-        .read_data(read_data)
+        .read_data(read_data),
+        .dig_lpf_y_out(dig_lpf_y_out)
     );
 
     // either to save value from data memory like lw instruction
