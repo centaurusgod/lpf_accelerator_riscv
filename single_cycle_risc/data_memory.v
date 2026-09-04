@@ -11,11 +11,8 @@ module data_memory (
 );
 
     // 1 x n byte module
-    // For LPF (increase it to at least 60k bytes to store the output, Using 64KB)
-    reg [7:0] mem_cell  [0:65536];
-
-    // load the first 30000 samples into the memory
-    
+    // TODO: (Smart memory approach) Currently: Creating large size array causes verilog to compile for a very long time
+    reg [7:0] mem_cell  [0:1024];
 
     // synchronous write
     always @(posedge clk) begin

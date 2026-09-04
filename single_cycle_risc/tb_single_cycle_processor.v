@@ -1,99 +1,118 @@
-`timescale 1ns / 1ps
+`timescale 1ns/1ps
 
 module tb_single_cycle_processor;
-
-    // Inputs
     reg clk;
     reg reset;
 
-    // Outputs
-    wire [31:0] address_of_pc;
+    // 30,000 sample storage array
+    reg [15:0] audio_samples [0:29999];
+    integer sample_index;
+    integer file_out;
+
     wire [31:0] result_of_alu;
-
-    // Dummy wires for unused outputs
-    wire [3:0] alu_operation_cu;
-    wire [31:0] instruction_from_ins_mem;
-    wire [31:0] immediate_value_from_imm_gen;
-    wire [4:0] source_register_one;
-    wire [4:0] source_register_two;
-    wire [4:0] destination_register;
-    wire [31:0] alu_source_a;
-    wire [31:0] alu_source_b;
-    wire taking_branch;
-    wire is_result_zero;
-    wire [31:0] next_branch_address;
-    wire branch_flag_out;
+    wire [31:0] address_of_pc;
     wire [31:0] next_pc_input;
+    wire [31:0] instruction_from_ins_mem;
 
-    // Instantiate DUT
-    single_cycle_processor uut (
+    single_cycle_processor dut (
         .clk(clk),
         .reset(reset),
         .result_of_alu(result_of_alu),
         .address_of_pc(address_of_pc),
-        .alu_operation_cu(alu_operation_cu),
+        .alu_operation_cu(),
         .instruction_from_ins_mem(instruction_from_ins_mem),
-        .immediate_value_from_imm_gen(immediate_value_from_imm_gen),
-        .source_register_one(source_register_one),
-        .source_register_two(source_register_two),
-        .destination_register(destination_register),
-        .alu_source_a(alu_source_a),
-        .alu_source_b(alu_source_b),
-        .taking_branch(taking_branch),
-        .is_result_zero(is_result_zero),
-        .next_branch_address(next_branch_address),
-        .branch_flag_out(branch_flag_out),
-        .next_pc_input(next_pc_input)
+        .immediate_value_from_imm_gen(),
+        .source_register_one(),
+        .source_register_two(),
+        .destination_register(),
+        .alu_source_a(),
+        .alu_source_b(),
+        .taking_branch(),
+        .is_result_zero(),
+        .next_branch_address(),
+        .branch_flag_out(),
+        .next_pc_input(next_pc_input),
+        .dig_lpf_y_out()
     );
 
+    // Clock generator (10ns period)
     always #5 clk = ~clk;
 
-    initial begin
-
-        // hex -> instuctions mapping log is present in test_instructions/hex/ins_mem_loads.log
-
-        // load instructions into instruction memory
-        //$readmemh("test_instructions_hex/sw_lw.hex", uut.im.mem_cell);
-
-        // load instructions for beq
-        // $readmemh("test_instructions_hex/beq.hex", uut.im.mem_cell);
-
-        // load instructions for bge
-        // $readmemh("test_instructions_hex/bge.hex", uut.im.mem_cell);
-
-        // load instructions for blt
-       // $readmemh("test_instructions_hex/blt.hex", uut.im.mem_cell);
-
-        // load instructions for bltu
-        // $readmemh("test_instructions_hex/bltu.hex", uut.im.mem_cell);
-
-        // instructions for bgeu
-        //$readmemh("test_instructions_hex/bgeu.hex", uut.im.mem_cell);
-
-
-    end
-
-    always @(posedge clk) begin
-        $display("Time = %0t | PC = %h | Instruction = %h | Funct3 = %b | ALU Result = %d | CU Branch: %b |  Branch Control Unit: %b", 
-                  $time, address_of_pc, instruction_from_ins_mem, instruction_from_ins_mem[14:12], result_of_alu, taking_branch, branch_flag_out);
-
-        // test for load and store instructions
-        // only display instructions, and (ALU RESULT | Data Memory Address)
-            // $display("Time = %0t | PC = %h | Instruction = %h | (ALU Result , Data Memory Address) = %d", 
-            //         $time, address_of_pc, instruction_from_ins_mem, result_of_alu);
-    end
-
-    // Test sequence
+    // Setup, initial reset, and hex loading
     initial begin
         clk = 0;
         reset = 1;
+        sample_index = 0;
 
-        #15;
+        // Open target output file
+        file_out = $fopen("single_lf.hex", "w");
+        if (file_out == 0) begin
+            $display("Error: Failed to open single_lf.hex for writing.");
+            $finish;
+        end
+
+        // Read audio input samples
+        $readmemh("audio_in.hex", audio_samples);
+
+        // Instruction Memory Initialization (Word-indexed by PC/4)
+        // Word 0 (PC 0x00): lui x3, 0x7          (28672)
+        dut.im.mem_cell[0] = 32'h000071b7;
+        // Word 1 (PC 0x04): addi x3, x3, 1328    (28672 + 1328 = 30000)
+        dut.im.mem_cell[1] = 32'h53018193;
+        // Word 2 (PC 0x08): addi x2, x0, 0       (MMIO Addr x2 = 0x0)
+        dut.im.mem_cell[2] = 32'h00000113;
+        // Word 3 (PC 0x0C): addi x7, x0, 1       (Decrement value)
+        dut.im.mem_cell[3] = 32'h00100393;
+
+        // LOOP: READ_AUDIO
+        // Word 4 (PC 0x10): sh x4, 0(x2)         (Write x4 to LPF @ 0x0)
+        dut.im.mem_cell[4] = 32'h00401023;
+        // Word 5 (PC 0x14): lh x5, 0(x2)         (Read y_out from LPF @ 0x0)
+        dut.im.mem_cell[5] = 32'h00001283;
+        // Word 6 (PC 0x18): sub x3, x3, x7       (x3 = x3 - 1)
+        dut.im.mem_cell[6] = 32'h407181b3;
+        // Word 7 (PC 0x1C): bne x3, x0, -12      (Branch to PC 0x10)
+        dut.im.mem_cell[7] = 32'hfe019ae3;
+
+        // Assert reset for 1 full clock cycle
+        #10;
         reset = 0;
+    end
 
-        #1000;
+    // Direct sample driver: Load current audio sample into x4 when PC is at 0x0C (1 cycle BEFORE 0x10 execution)
+    always @(negedge clk) begin
+        if (!reset) begin
+            if (address_of_pc == 32'h0c || address_of_pc == 32'h1c) begin
+                if (sample_index < 30000) begin
+                    dut.reg_file.x[4] = {{16{audio_samples[sample_index][15]}}, audio_samples[sample_index]};
+                end
+            end
+        end
+    end
 
-        $finish;
+    // File Writer: Capture y_out from register x5 after lh instruction executes at PC 0x14
+    always @(posedge clk) begin
+        if (!reset) begin
+            if (address_of_pc == 32'h14) begin
+                #1; // Delay 1ns to wait for register file write-back to finish
+                $fdisplay(file_out, "%04X", dut.reg_file.x[5][15:0]);
+                sample_index = sample_index + 1;
+            end
+        end
+    end
+
+    // Simulation Monitor and Termination
+    initial begin
+        forever begin
+            @(posedge clk);
+            if (!reset && address_of_pc == 32'h1c && dut.reg_file.x[3] == 0) begin
+                #20;
+                $fclose(file_out);
+                $display("\nSuccessfully processed %0d samples directly through LPF MMIO.", sample_index);
+                $display("Output saved to single_lf.hex\n");
+                $finish;
+            end
+        end
     end
 
 endmodule

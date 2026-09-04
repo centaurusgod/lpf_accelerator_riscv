@@ -39,9 +39,6 @@ module control_unit (
                 alu_op = 2'b00;
             end
 
-            // don't know what below are
-            // maybe following lab, i chosed for 64 bit
-
             // I-type Load
             7'b0000011 : begin
                 alu_src = 1'b1;
