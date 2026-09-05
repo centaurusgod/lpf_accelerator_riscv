@@ -25,13 +25,114 @@
 # Single Cycle RISC-V Processor (32bit) Integer Subset
 - RiscV32 (I) Implementation with Butterworth Second Order Low Pass Filter as Hardware Accelerator being interfaced on Memory Mapped 0x00000000H.
 - Processes audio via dedicated accelerator (consisting of parallel adders and multipliers and delay registers) instead of sequential eexcution by processor
+- Low Pass Filter Diagram
+![Low Pass Filter](media/low_pass_filter.png)
+- RISCV32 Single Cycle Processor Diagram
+![Single Cycle RISC-V Processor](media/riscv_with_lpf_accelerator.png)
 
-![Single Cycle RISC-V Processor](single_cycle_risc/single_cycle_processor.png)
+- LPF In Action
+![LPF In ACTION](media/low_pass_filter_working.mp4)
 
 
 Note: Few unnecessary wires/regs are being used for output, because simulating on digitaljs
 it was harder to see what was the value in different regs eg, alu_output, Program Counter etc.
 
+
+
+# Designing Butterworth Low pass Filter ( From Mathematics To Verilog)
+The complete derivation for a 2nd-order Butterworth low-pass filter operating at a 10,000 Hz sampling rate with a 100 Hz cutoff frequency requires transitioning from continuous analog poles to discrete digital coefficients.
+
+### 1. Analog Prototype and Pole Selection
+
+A Butterworth filter is defined by having a maximally flat magnitude response in the passband. The magnitude squared response for a normalized analog Butterworth filter ($\Omega_c = 1\text{ rad/s}$) is:
+
+
+$$\vert{}H(j\Omega)\vert{}^2 = \frac{1}{1 + \Omega^{2N}}$$
+
+To derive the continuous-time transfer function $H(s)$, we evaluate the response along the imaginary axis where $\Omega^2 = -s^2$. Setting the filter order to $N=2$ yields the general s-domain relationship:
+
+
+$$H(s) \cdot H(-s) = \frac{1}{1 + (-s^2)^2} = \frac{1}{1 + s^4}$$
+
+Setting the denominator to zero ($1 + s^4 = 0$) results in four complex poles:
+
+
+$$s_k = e^{j\frac{\pi + 2k\pi}{4}} \quad \text{for } k = 0, 1, 2, 3$$
+
+* $s_0 = \frac{1}{\sqrt{2}} + j\frac{1}{\sqrt{2}}$
+* $s_1 = -\frac{1}{\sqrt{2}} + j\frac{1}{\sqrt{2}}$
+* $s_2 = -\frac{1}{\sqrt{2}} - j\frac{1}{\sqrt{2}}$
+* $s_3 = \frac{1}{\sqrt{2}} - j\frac{1}{\sqrt{2}}$
+
+To ensure system stability, all poles must lie in the left-half of the s-plane. Taking the stable poles $s_1$ and $s_2$, the normalized analog transfer function $H_n(s)$ is constructed:
+
+
+$$H_n(s) = \frac{1}{(s - s_1)(s - s_2)} = \frac{1}{s^2 + \sqrt{2}s + 1}$$
+
+### 2. Frequency Pre-Warping
+
+The system specifications define a digital cutoff frequency $f_c = 100\text{ Hz}$ and a sampling frequency $f_s = 10,000\text{ Hz}$.
+The normalized digital cutoff frequency ($\omega_c$) is:
+
+
+$$\omega_c = 2\pi \frac{f_c}{f_s} = 2\pi \frac{100}{10000} = 0.02\pi \text{ rad/sample}$$
+
+To prevent frequency distortion during digitization, the target frequency is pre-warped into the continuous domain:
+
+
+$$\Omega_p = \frac{2}{T} \tan\left(\frac{\omega_c}{2}\right)$$
+
+
+We can simplify algebraic substitution by defining the constant $K = \cot\left(\frac{\omega_c}{2}\right) = \frac{1}{\tan(0.01\pi)} \approx 31.820516$.
+
+### 3. Bilinear Transformation
+
+The Bilinear Transformation maps the analog s-plane to the digital z-plane using the substitution $s = \frac{2}{T}\left(\frac{1 - z^{-1}}{1 + z^{-1}}\right)$. By replacing the pre-warped terms with our constant $K$, the substitution into $H_n(s)$ becomes:
+
+
+$$H(z) = \frac{1}{\left[ K \left( \frac{1 - z^{-1}}{1 + z^{-1}} \right) \right]^2 + \sqrt{2} K \left( \frac{1 - z^{-1}}{1 + z^{-1}} \right) + 1}$$
+
+Multiplying the numerator and denominator by $(1 + z^{-1})^2$ and expanding the binomial terms yields:
+
+
+$$H(z) = \frac{1 + 2z^{-1} + z^{-2}}{(K^2 + \sqrt{2}K + 1) + 2(1 - K^2)z^{-1} + (K^2 - \sqrt{2}K + 1)z^{-2}}$$
+
+### 4. Transfer Function & Difference Equation
+
+To reach standard biquad form, divide the entire expression by the constant denominator term $D_0 = (K^2 + \sqrt{2}K + 1)$ to set $a_0 = 1$.
+This produces the final digital transfer function:
+
+
+$$H(z) = \frac{Y(z)}{X(z)} = \frac{b_0 + b_1 z^{-1} + b_2 z^{-2}}{1 + a_1 z^{-1} + a_2 z^{-2}}$$
+
+Applying the Inverse Z-Transform directly to this transfer function yields the time-domain difference equation for hardware execution:
+
+
+$$Y(z) [1 + a_1 z^{-1} + a_2 z^{-2}] = X(z) [b_0 + b_1 z^{-1} + b_2 z^{-2}]$$
+
+$$y[n] + a_1 y[n-1] + a_2 y[n-2] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2]$$
+
+$$y[n] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2] - a_1 y[n-1] - a_2 y[n-2]$$
+
+**Coefficient Calculation Validation**
+Calculating the numeric constants based on $K = 31.820516$:
+
+* $K^2 = 1012.5452$
+* $\sqrt{2}K = 45.0010$
+* $D_0 = K^2 + \sqrt{2}K + 1 = 1058.5462$
+* $D_1 = 2(1 - K^2) = -2023.0904$
+* $D_2 = K^2 - \sqrt{2}K + 1 = 968.5442$
+
+Dividing by $D_0$ gives the final filter coefficients:
+
+* $b_0 = \frac{1}{1058.5462} = 0.00094469$
+* $b_1 = \frac{2}{1058.5462} = 0.00188938$
+* $b_2 = \frac{1}{1058.5462} = 0.00094469$
+* $a_1 = \frac{-2023.0904}{1058.5462} = -1.911197$
+* $a_2 = \frac{968.5442}{1058.5462} = 0.914976$
+
+
+- As these are floating point values but our processor supports only integer values, How will we do it?
 
 # References
 # RISCV 32 vard
