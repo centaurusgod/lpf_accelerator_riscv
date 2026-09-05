@@ -31,7 +31,10 @@
 ![Single Cycle RISC-V Processor](media/riscv_with_lpf_accelerator.png)
 
 - LPF In Action
-![LPF In ACTION](media/low_pass_filter_working.mp4)
+<video controls width="600">
+    <source src="media/low_pass_filter_working.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 
 Note: Few unnecessary wires/regs are being used for output, because simulating on digitaljs
@@ -65,6 +68,12 @@ The input is a 3-second, 16-bit PCM signal generated with SciPy. It combines
     Your browser does not support the video player.
     <a href="media/single_lpf_accelerator_output.mp4">Download the processor output video</a>.
 </video>
+
+## Output Frequency Spectrum Analysis
+- The input signal in [audios/input_signal.wav](audios/input_signal.wav) contains two tones: 100 Hz and 4,000 Hz.
+- The filtered output in [audios/filtered_lpf_signal.wav](audios/filtered_lpf_signal.wav) keeps only the 100 Hz component, showing the low-pass filter removes the high-frequency tone.
+- The processor output in [audios/single_lpf_accelerator_output.wav](audios/single_lpf_accelerator_output.wav) matches this behavior, confirming the hardware implementation works correctly.
+- The frequency plot in ![Frequency Analysis](media/frequency_spectrum.png) compares the input and filtered spectra side by side.
 
 ## Designing a 2nd Order Butterworth Low Pass Filter
 
@@ -112,8 +121,8 @@ Evaluating this for each $k$ gives our four complex poles:
 *   $s_2 = -\frac{1}{\sqrt{2}} - j\frac{1}{\sqrt{2}}$
 *   $s_3 = \frac{1}{\sqrt{2}} - j\frac{1}{\sqrt{2}}$
 
-**Plotting the Poles in the s-plane**
-![Poles in S-Plane Placeholder](media/s4_planes_plot.png)
+#### Plotting the Poles in the s-plane
+- <img src="media/s4_planes_plot.png" width="400" alt="Poles in S-Plane Placeholder">
 
 To ensure system stability, all poles of $H(s)$ must lie strictly in the left-half of the s-plane. Selecting stable poles $s_1$ and $s_2$ allows us to construct the normalized analog transfer function $H_n(s)$:
 
@@ -223,18 +232,23 @@ $$Y(z) [1 + a_1 z^{-1} + a_2 z^{-2}] = X(z) [b_0 + b_1 z^{-1} + b_2 z^{-2}]$$
 $$y[n] + a_1 y[n-1] + a_2 y[n-2] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2]$$
 
 $$y[n] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2] - a_1 y[n-1] - a_2 y[n-2]$$
-- As these are floating point values but our processor supports only integer values, How will we do it?
+
+### 5. Direct Form - I representation
+- <img src="https://ccrma.stanford.edu/~jos/fp/img76_2x.png" width="400" alt="Direct Form I Representation">
+
+### 5. Floating Point Coefficients To Fixed Point Conversion
+- As our processor is capable of processing only the integer subset, we need to do sth about the floating point coefficients
+- The trick is fixed point conversion
 
 # References
-# RISCV 32 vard
+1. RISCV 32 vard
 https://moodle.insa-lyon.fr/pluginfile.php/132782/course/section/74012/riscv-card.pdf
 
-# fixed point vs floating point
+2. fixed point vs floating point
 https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/
 
 
-
-# Calculate the filter coeffiecients (trn into fixed point Q2.14 1 bit sign, 1 bit integer, 14 bit fraction)
+3. Calculate the filter coeffiecients (trn into fixed point Q2.14 1 bit sign, 1 bit integer, 14 bit fraction)
 - our filter ranges (-1, +1.99)
 coeff * 2^14 scale
 b0=0.00094469, 15.4778, Round 15, BIN: 0000 0000 0000 1111
@@ -245,5 +259,8 @@ a1=-1.911197, -31313.0516, Round:31313,  BIN(2's complement): 1000 0101 1010 111
 a2=0.914976, 14990.9667, Round: 14991, BIN: 0011 1010 1000 1111
 
 
-# Loading files into memory in verilog
+4. Loading files into memory in verilog
 - https://projectf.io/posts/initialize-memory-in-verilog/#:~:text=Verilog%20allows%20you%20to%20initialize%20memory%20from,file%20containing%20binary%20values%20separated%20by%20whitespace.
+
+5. Direct Form i represnetaiton
+- https://ccrma.stanford.edu/~jos/fp/img76_2x.png
