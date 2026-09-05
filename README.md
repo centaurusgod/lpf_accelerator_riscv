@@ -39,11 +39,11 @@ it was harder to see what was the value in different regs eg, alu_output, Progra
 
 # Input & Output Demonstration
 - 16 bit PCM audio signal, 3 seconds signal Audio In .wav (3 seconds waveform generated from python scipy library consitionf of superimposed 100Hz + 4000 Hz sine signal)
-<audio src="audios/input_signal.wav" controls></audio>
+<audio src="<audio controls src="https://github.com/centaurusgod/riscv_lpf_accelerator/blob/master/audios/input_signal.wav" title="audios/input_signal.wav"></audio>" controls></audio>
 - Audio Out (python library that used the difference equation we calculated to perform filtering action and)
-<audio src="audios/filtered_lpf_signal.wav" controls></audio>
+<audio src="<audio controls src="https://github.com/centaurusgod/riscv_lpf_accelerator/blob/master/audios/filtered_lpf_signal.wav" title="audios/filtered_lpf_signal.wav"></audio>" controls></audio>
 - Outut signal runnign the test bench single_cycle_risc/test_bench/tb_single_cycle_processor.v
-<audio src="audios/single_lpf_accelerator_output.wav" controls></audio>
+<audio src="<audio controls src="https://github.com/centaurusgod/riscv_lpf_accelerator/blob/master/audios/single_lpf_accelerator_output.wav" title="audios/single_lpf_accelerator_output.wav"></audio>" controls></audio>
 
 
 
