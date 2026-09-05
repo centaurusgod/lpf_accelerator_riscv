@@ -7,16 +7,8 @@ module low_pass_filter(
     input wire clk,
     output reg signed[15:0] y_out
 );
-    // (my implementation)
-    // Difference Const Coefficients
-    // localparam signed b0 = 16'b0000000000001111;
-    // localparam signed b1 = 16'b0000000000011111;
-    // localparam signed b2 = 16'b0000000000001111;
-    // localparam signed a1 = 16'b0111101001010001; // -(-a1), so store direct
-    // localparam signed a2 = 16'b1100010101110001; // -(a2), so store 2's complement
 
-    // (geminis suggestion)
-    // Difference Const Coefficients (Pre-negated in Q2.14)
+    // difference Const Coefficients (Pre-negated in Q2.14)
     localparam signed [15:0] b0 = 16'sd15;      //  0.00094469 * 16384
     localparam signed [15:0] b1 = 16'sd31;      //  0.00188938 * 16384
     localparam signed [15:0] b2 = 16'sd15;      //  0.00094469 * 16384
@@ -29,7 +21,7 @@ module low_pass_filter(
     reg signed [15:0] y_1;
     reg signed [15:0] y_2;
 
-    // we have audio input as 16bit signed integer val, but input is unsigned
+    // We have audio input as 16bit signed integer val, but input is unsigned
     // so convert the x_in to signed
     wire signed [31:0] p0 = x_in * b0;
     wire signed [31:0] p1 = x_1  * b1;
@@ -53,9 +45,9 @@ module low_pass_filter(
             y_1 <= 0; 
             y_2 <= 0;
             y_out <= 0;
-        // feedbackfrom gemini
+        
+        // feedback from gemini
         // only process if a valid x_in is provided as input 
-        // similar to TVALID signal in AXI4's   
         end else if (data_valid) begin
             x_2 <= x_1;
             x_1 <= x_in;
