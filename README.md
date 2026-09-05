@@ -37,6 +37,15 @@
 Note: Few unnecessary wires/regs are being used for output, because simulating on digitaljs
 it was harder to see what was the value in different regs eg, alu_output, Program Counter etc.
 
+# Input & Output Demonstration
+- 16 bit PCM audio signal, 3 seconds signal Audio In .wav (3 seconds waveform generated from python scipy library consitionf of superimposed 100Hz + 4000 Hz sine signal)
+<audio src="audios/input_signal.wav" controls></audio>
+- Audio Out (python library that used the difference equation we calculated to perform filtering action and)
+<audio src="audios/filtered_lpf_signal.wav" controls></audio>
+- Outut signal runnign the test bench single_cycle_risc/test_bench/tb_single_cycle_processor.v
+<audio src="audios/single_lpf_accelerator_output.wav" controls></audio>
+
+
 
 
 # Designing Butterworth Low pass Filter ( From Mathematics To Verilog)
