@@ -9,11 +9,17 @@ module low_pass_filter(
 );
 
     // difference Const Coefficients (Pre-negated in Q2.14)
-    localparam signed [15:0] b0 = 16'sd15;      //  0.00094469 * 16384
-    localparam signed [15:0] b1 = 16'sd31;      //  0.00188938 * 16384
-    localparam signed [15:0] b2 = 16'sd15;      //  0.00094469 * 16384
-    localparam signed [15:0] a1 = 16'sd31313;   // -(-1.911197) * 16384 (Pre-negated -> Direct)
-    localparam signed [15:0] a2 = -16'sd14991;  // -(+0.914976) * 16384 (Pre-negated -> 2's Complement)
+    // localparam signed [15:0] b0 = 16'sd15;      //  0.00094469 * 16384
+    // localparam signed [15:0] b1 = 16'sd31;      //  0.00188938 * 16384
+    // localparam signed [15:0] b2 = 16'sd15;      //  0.00094469 * 16384
+    // localparam signed [15:0] a1 = 16'sd31313;   // -(-1.911197) * 16384 (Pre-negated -> Direct)
+    // localparam signed [15:0] a2 = -16'sd14991;  // -(+0.914976) * 16384 (Pre-negated -> 2's Complement)
+
+    localparam signed [15:0] b0 = 16'sb0000000000001111; // 15
+    localparam signed [15:0] b1 = 16'sb0000000000011111; // 31
+    localparam signed [15:0] b2 = 16'sb0000000000001111; // 15
+    localparam signed [15:0] a1 = 16'sb0111101001010001; // 31313
+    localparam signed [15:0] a2 = 16'sb1100010101110001; // -14991
 
     // Delay registers x & y
     reg signed [15:0] x_1;
