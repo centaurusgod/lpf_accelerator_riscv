@@ -73,7 +73,19 @@ The input is a 3-second, 16-bit PCM signal generated with SciPy. It combines
 - The input signal in [audios/input_signal.wav](audios/input_signal.wav) contains two tones: 100 Hz and 4,000 Hz.
 - The filtered output in [audios/filtered_lpf_signal.wav](audios/filtered_lpf_signal.wav) keeps only the 100 Hz component, showing the low-pass filter removes the high-frequency tone.
 - The processor output in [audios/single_lpf_accelerator_output.wav](audios/single_lpf_accelerator_output.wav) matches this behavior, confirming the hardware implementation works correctly.
-- The frequency plot in ![Frequency Analysis](media/frequency_spectrum.png) compares the input and filtered spectra side by side.
+- The frequency plot compares the input and filtered spectra side by side. ![Frequency Analysis](media/frequency_spectrum.png)
+
+
+# Performance Comparison
+- Clock Cycles Comparison  ( StandAlone Processor Execution vs With LPF As Hardware Accelerator)
+- Following output shows the number of clock cycles required for processor to standalone process it vs with an hardware accelerator for 30,000 samples of 16 bit pcm audio data
+- (Note: I know we haven't implemented the 5 stage pipeline for the RISCV, it could be faster, but regardless, this shows how dedicated hardware accelerators greately reduce the instruction size as well as clock cylces to perform the same action )
+- ![Demo Comparison](media/processor_v_accelerator_performance_comparison.png)
+- We saw after we attach accelerato, 430% reduction
+29,000 − 30,000 = 99,000 cycles saved.
+- Cycle Reduction percentage: x %
+- Faster by x.y times, eqvt to 330% faster performance.
+
 
 ## Designing a 2nd Order Butterworth Low Pass Filter
 
@@ -237,8 +249,120 @@ $$y[n] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2] - a_1 y[n-1] - a_2 y[n-2]$$
 - <img src="https://ccrma.stanford.edu/~jos/fp/img76_2x.png" width="400" alt="Direct Form I Representation">
 
 ### 5. Floating Point Coefficients To Fixed Point Conversion
-- As our processor is capable of processing only the integer subset, we need to do sth about the floating point coefficients
-- The trick is fixed point conversion
+
+Because our processor implements a subset of the RV32I base integer instruction set, it lacks native floating-point hardware support. To solve this, we will use fixed-point numbers.
+
+Checking the filter coefficients, we observe the following extremes:
+*   **Maximum positive value:** $+0.914975$
+*   **Maximum negative value:** $-1.911197$
+
+To represent these in a 16-bit register, a Q2.14 fixed-point format is sufficient.
+A signed Q2.14 format consists of 1 sign bit, 1 integer bit, and 14 fractional bits. This provides a representable range from a minimum of $-2.0$ (binary `10.0000 0000 0000 00`) to a maximum of $+1.99993896...$ (binary `01.1111 1111 1111 11`). Since our coefficients strictly fall within the $[-2.0, +1.9999]$ boundary, this format perfectly covers our required range without overflow.
+
+*   **Precision (Step Size):** $2^{-14} = \frac{1}{16384} \approx 0.000061035$
+    *(Yes, the smallest non-zero number we can represent is exactly the step size between any two consecutive representable numbers).*
+
+To convert a coefficient to this integer format, we multiply by the scaling factor $2^{14} = 16384$. We are essentially finding how many LSB steps of size $\frac{1}{16384}$ are needed to build the target value. For example, building $0.914975$:
+
+$$
+\mathrm{Count} = \dfrac{\mathrm{Target Value}}{\mathrm{LSB Step Size}} = \dfrac{0.914975}{2^{-14}} = 0.914975 \cdot 16384 \approx 14991
+$$
+
+
+$14991$ in decimal corresponds to Q2.14 binary `00.11101010001111`. When reconstructed, $\frac{14991}{16384} = 0.9149780273$. Note that the reconstructed value is slightly greater because we rounded $14990.95$ to $14991$. We must understand that fixed-point representation may not be exact due to quantization error. When designing filters, we must ensure the quantized coefficients still produce a stable response, otherwise, the filter may oscillate or fail entirely.
+
+Multiplying each coefficient by $2^{14} = 16384$ and rounding yields:
+*   $b_0 = 0.00094469 \times 16384 \approx 15$
+*   $b_1 = 0.00188938 \times 16384 \approx 31$
+*   $b_2 = 0.00094469 \times 16384 \approx 15$
+*   $a_1 = -1.911197 \times 16384 \approx -31313$
+*   $a_2 = 0.914976 \times 16384 \approx 14991$
+
+Our difference equation requires subtracting the feedback terms: $-a_1 y[n-1] - a_2 y[n-2]$. To optimize our hardware and use a pure adder tree, we can convert these coefficients beforehand by storing their negated (2's complement) forms. This eliminates subtraction operations in Verilog.
+
+*   **For $-a_1$:** $-(-31313) = +31313$. No 2's complement conversion needed, store directly as positive.
+*   **For $-a_2$:** $-(+14991) = -14991$. Convert into 16-bit 2's complement:
+    * `1100 0101 0111 0001`
+
+```verilog
+    localparam signed [15:0] b0 = 16'sb0000000000001111; // 15
+    localparam signed [15:0] b1 = 16'sb0000000000011111; // 31
+    localparam signed [15:0] b2 = 16'sb0000000000001111; // 15
+    localparam signed [15:0] a1 = 16'sb0111101001010001; // 31313  (-(-a1))
+    localparam signed [15:0] a2 = 16'sb1100010101110001; // -14991 (-(+a2))
+
+```
+
+Up to here is the mathematical theory. Now we just write Verilog code to perform pure addition.
+Check code here: `single_cycle_risc/low_pass_filter.v`
+
+```verilog
+module low_pass_filter(
+    // 16 bit input
+    // We assume we save the audio in 16 bit signed int notation in the wav file
+    input signed [15:0] x_in,
+    input rst,
+    input wire data_valid,
+    input wire clk,
+    output reg signed [15:0] y_out
+);
+
+    // Pre-negated feedback coefficients in Q2.14 format
+    localparam signed [15:0] b0 = 16'sb0000000000001111; // 15
+    localparam signed [15:0] b1 = 16'sb0000000000011111; // 31
+    localparam signed [15:0] b2 = 16'sb0000000000001111; // 15
+    localparam signed [15:0] a1 = 16'sb0111101001010001; // +31313 (c1 = -a1)
+    localparam signed [15:0] a2 = 16'sb1100010101110001; // -14991 (c2 = -a2)
+
+    // Delay registers x & y
+    reg signed [15:0] x_1;
+    reg signed [15:0] x_2;
+    reg signed [15:0] y_1;
+    reg signed [15:0] y_2;
+
+    // Multipliers for the filter taps
+    wire signed [31:0] p0 = x_in * b0;
+    wire signed [31:0] p1 = x_1  * b1;
+    wire signed [31:0] p2 = x_2  * b2;
+    wire signed [31:0] p3 = y_1  * a1;
+    wire signed [31:0] p4 = y_2  * a2;
+
+    // Addition may scale the output > 32 bit so take 3 guard bits
+    // Because we pre-negated the feedback coefficients, we use a pure adder tree:
+    wire signed [34:0] accum = p0 + p1 + p2 + p3 + p4;
+
+    // Shift right by 14 (remove Q2.14 scale) and take lower 16 bits
+    wire signed [34:0] shifted_accum = accum >>> 14;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            // initialize everything to 0 in beginning
+            x_1 <= 0;
+            x_2 <= 0;
+            y_1 <= 0;
+            y_2 <= 0;
+            y_out <= 0;
+
+        // only process if a valid x_in is provided as input
+        end else if (data_valid) begin
+            x_2 <= x_1;
+            x_1 <= x_in;
+            y_2 <= y_1;
+            y_1 <= shifted_accum[15:0];
+            y_out <= shifted_accum[15:0];
+        end
+    end
+endmodule
+
+```
+
+As we do not want to complicate our system using DMA, we use the Memory Mapped IO (MMIO) concept to place the LPF accelerator into the `0x00000000H` address space for simplicity.
+
+Please check: `single_cycle_risc/mmio_wrapper.v`
+
+Find the test benches for the low pass filter, MMIO wrapper, and single-cycle processor combining everything here.
+
+*Note: The primary purpose of this guide is not to build the single-cycle processor or RISC-V processor from scratch, but everything will be included in the reference section.*
 
 # References
 1. RISCV 32 vard
@@ -246,6 +370,7 @@ https://moodle.insa-lyon.fr/pluginfile.php/132782/course/section/74012/riscv-car
 
 2. fixed point vs floating point
 https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/
+https://youtu.be/zVM8NKXsboA
 
 
 3. Calculate the filter coeffiecients (trn into fixed point Q2.14 1 bit sign, 1 bit integer, 14 bit fraction)
