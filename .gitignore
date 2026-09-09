@@ -1,2 +1,4 @@
 *.pdf
 .verilog-simulator/
+**/__pycache__/
+*.pyc

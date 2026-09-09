@@ -1,4 +1,7 @@
-import sys
+# This script is used for generating RISC-V assembly instruction
+# To load 32 bit immediate values into a register using LUI and ADDI instructions.
+# Use this instruction provided by this script in https://riscv-simulator-five.vercel.app/ to generate the machine code
+
 
 def generate_riscv_load_imm(reg: str, val: int) -> list[str]:
     # Handle values that fit in a single sign-extended 12-bit immediate (-2048 to 2047)
@@ -26,6 +29,7 @@ def generate_riscv_load_imm(reg: str, val: int) -> list[str]:
 
     return instructions
 
+
 def main():
     user_input = input("Enter register and decimal value (e.g., x4 35000): ").strip()
     if not user_input:
@@ -33,7 +37,9 @@ def main():
 
     parts = user_input.split()
     if len(parts) != 2:
-        print("Error: Please provide exactly two space-separated inputs (register and value).")
+        print(
+            "Error: Please provide exactly two space-separated inputs (register and value)."
+        )
         return
 
     reg, val_str = parts[0], parts[1]
@@ -58,6 +64,7 @@ def main():
     print("\nGenerated Assembly:")
     for inst in instructions:
         print(f"  {inst}")
+
 
 if __name__ == "__main__":
     main()

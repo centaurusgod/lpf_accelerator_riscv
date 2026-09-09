@@ -1,50 +1,89 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io.wavfile as wav
+from pathlib import Path
 
-# 1. Load the generated audio files
-fs_in, x_audio = wav.read("input_signal.wav")
-fs_out, y_audio = wav.read("filtered_lpf_signal.wav")
-fs_hw, y_hw_audio = wav.read("single_cycle_risc/single_lpf_accelerator_output.wav")
-
-# Convert back to normalized float [-1.0, 1.0] for FFT processing
-x = x_audio / 32767.0
-y = y_audio / 32767.0
-y_hw = y_hw_audio / 32767.0
-
-# 2. Compute FFT and Frequency Axis
-N = len(x)
-freqs = np.fft.rfftfreq(N, d=1 / fs_in)
-
-# Compute Magnitude Spectrum (normalized)
-X_mag = np.abs(np.fft.rfft(x)) / N
-Y_mag = np.abs(np.fft.rfft(y)) / N
-Y_hw_mag = np.abs(np.fft.rfft(y_hw)) / N
-
-# 3. Plot Frequency Spectrum (3-panel layout)
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-plots = [
-    (axes[0], X_mag, "b", "Input Spectrum (100 Hz + 4000 Hz)"),
-    (axes[1], Y_mag, "r", "Python LPF Output"),
-    (axes[2], Y_hw_mag, "g", "Verilog Hardware Output"),
+# Provide the input audio files to plot their frequency spectra
+DEFAULT_INPUT_AUDIOS = [
+    "input_signal.wav",
+    "filtered_lpf_signal.wav",
+    "single_lpf_accelerator_output.wav",
 ]
 
-for ax, mag, color, title in plots:
-    ax.plot(freqs, mag, color=color)
-    ax.set_title(title)
-    ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("Magnitude")
-    ax.set_xlim(20, 5000)
-    
-    # Enable log scale for balanced visibility of low & high frequencies
-    ax.set_xscale("log") 
-    
-    # Custom ticks to highlight specific signal frequencies
-    ax.set_xticks([100, 500, 1000, 4000])
-    ax.get_xaxis().set_major_formatter(plt.ScalarFormatter()) # Keep standard numbers
-    ax.grid(True, which="both", ls="--", alpha=0.5)
 
-plt.tight_layout()
-plt.savefig("frequency_spectrum.png", dpi=300)
-print("Plot successfully saved to frequency_spectrum.png")
+def plot_aggregate_frequency_spectrum(
+    input_audios, output_path="frequency_spectrum.png"
+):
+    """Plot one frequency-spectrum subplot for each provided WAV file."""
+    if isinstance(input_audios, (str, Path)):
+        input_audios = [input_audios]
+
+    spectra = []
+    for input_audio in input_audios:
+        try:
+            sample_rate, audio = wav.read(input_audio)
+            audio = np.asarray(audio)
+            if audio.ndim > 1:
+                audio = audio.mean(axis=1)
+            if audio.size == 0:
+                raise ValueError("audio file is empty")
+
+            # Scale integer PCM samples while leaving floating-point WAV data usable.
+            if np.issubdtype(audio.dtype, np.integer):
+                scale = max(abs(np.iinfo(audio.dtype).min), np.iinfo(audio.dtype).max)
+                audio = audio.astype(float) / scale
+            else:
+                audio = audio.astype(float)
+
+            sample_count = len(audio)
+            frequencies = np.fft.rfftfreq(sample_count, d=1 / sample_rate)
+            magnitude = np.abs(np.fft.rfft(audio)) / sample_count
+            spectra.append((frequencies, magnitude, Path(input_audio).name))
+        except (FileNotFoundError, OSError, ValueError) as error:
+            raise ValueError(f"Could not process '{input_audio}': {error}") from error
+
+    if not spectra:
+        raise ValueError("Provide at least one WAV file")
+
+    figure, axes = plt.subplots(
+        1,
+        len(spectra),
+        figsize=(5 * len(spectra), 5),
+        squeeze=False,
+    )
+
+    for axis, (frequencies, magnitude, filename) in zip(axes[0], spectra):
+        axis.plot(frequencies, magnitude)
+        axis.set_title(filename)
+        axis.set_xlabel("Frequency (Hz)")
+        axis.set_ylabel("Magnitude")
+        axis.set_xlim(20, 5000)
+        axis.set_xscale("log")
+        axis.set_xticks([100, 500, 1000, 4000])
+        axis.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+        axis.grid(True, which="both", ls="--", alpha=0.5)
+
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=300)
+    plt.close(figure)
+    print(f"Plot successfully saved to {output_path}")
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Plot WAV frequency spectra")
+    parser.add_argument(
+        "input_audios",
+        nargs="*",
+        default=DEFAULT_INPUT_AUDIOS,
+        help="one or more WAV files; defaults to the project demo files",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="frequency_spectrum.png",
+        help="output image path",
+    )
+    arguments = parser.parse_args()
+    plot_aggregate_frequency_spectrum(arguments.input_audios, arguments.output)

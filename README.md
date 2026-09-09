@@ -2,12 +2,8 @@
 1. Brief & Working
 2. Images and Outputs (to provide summary beforehand)
     - Image output from DigitalJS
-3. Perfomance Comparison
-    - Instruction Cycle : Accelerated Vs Non-Accelerated Simple Graph
-    - Instruction Comparison
-3. Constructin & Working 
-    - Focus brief on riscv construction providing link to reference
-4. Derivation Of 2nd Order Butterworth Low pass filter
+3. Construction Of 2nd Order ButterWorth Low Pass Filter
+ - Derivation Of 2nd Order Butterworth Low pass filter
     - Starting equation, 
     - Filter Design Problem
     - Bilinear Transformation 7 Z-transform
@@ -18,6 +14,15 @@
     - Mention riscv32I so to work in existing work instead of implementing floating units
     - perofmring conversions etc
     - Show the loss in precision 58.xx vs 56 as output
+6. How to use this project for yours, python scripts, /scripts folder
+    - Compile & run verilog test bench code
+    - Generating audio
+    - Converting .wav file to hex file
+    - Converting .hex file back to .wav file
+    - Plotting frequency spectrum
+3. Perfomance Comparison
+    - Instruction Vs Cycle Count Comparison(Yet to include)
+x. 
 5. References
 
 
@@ -30,25 +35,19 @@
 - RISCV32 Single Cycle Processor Diagram
 ![Single Cycle RISC-V Processor](media/riscv_with_lpf_accelerator.png)
 
-- LPF In Action
-<video controls width="600">
-    <source src="media/low_pass_filter_working.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-</video>
-
-
 Note: Few unnecessary wires/regs are being used for output, because simulating on digitaljs
 it was harder to see what was the value in different regs eg, alu_output, Program Counter etc.
 
 # Input & Output Demonstration
+Note: How to generate audio and test filtering action in verilog and reconstruct audio back, do frequency analysis are all present on Section 6.
 
 The input is a 3-second, 16-bit PCM signal generated with SciPy. It combines
 100 Hz and 4,000 Hz sine waves.
 
 **Input signal**
-NOTE; Hearing Warning, 4000Hz Sine Wave
+**HEARING WARNING: Contains 4000 Hz Sound**
 
-- Input Signal (A hum and a tin sound)
+- **Input Signal (A hum and a tin sound)**
 
 https://github.com/user-attachments/assets/da812555-eda7-4a3b-aa57-20f6f05ca55a
 
@@ -68,14 +67,7 @@ https://github.com/user-attachments/assets/c2acd90c-50c1-4719-ba5c-3ec40075e909
 
 
 # Performance Comparison
-- Clock Cycles Comparison  ( StandAlone Processor Execution vs With LPF As Hardware Accelerator)
-- Following output shows the number of clock cycles required for processor to standalone process it vs with an hardware accelerator for 30,000 samples of 16 bit pcm audio data
-- (Note: I know we haven't implemented the 5 stage pipeline for the RISCV, it could be faster, but regardless, this shows how dedicated hardware accelerators greately reduce the instruction size as well as clock cylces to perform the same action )
-- ![Demo Comparison](media/processor_v_accelerator_performance_comparison.png)
-- We saw after we attach accelerato, 430% reduction
-29,000 − 30,000 = 99,000 cycles saved.
-- Cycle Reduction percentage: x %
-- Faster by x.y times, eqvt to 330% faster performance.
+- To include soon..
 
 
 ## Designing a 2nd Order Butterworth Low Pass Filter
