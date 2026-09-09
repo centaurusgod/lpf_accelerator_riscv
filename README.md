@@ -277,7 +277,7 @@ Our difference equation requires subtracting the feedback terms: $-a_1 y[n-1] - 
 ```
 
 Up to here is the mathematical theory. Now we just write Verilog code to perform pure addition.
-Check code here: `single_cycle_risc/low_pass_filter.v`
+Check code here: `verilog_modules/low_pass_filter.v`
 
 ```verilog
 module low_pass_filter(
@@ -346,6 +346,185 @@ Please check: `single_cycle_risc/mmio_wrapper.v`
 Find the test benches for the low pass filter, MMIO wrapper, and single-cycle processor combining everything here.
 
 *Note: The primary purpose of this guide is not to build the single-cycle processor or RISC-V processor from scratch, but everything will be included in the reference section.*
+
+## How to Test the Hardware
+
+This section explains how I tested the hardware created in this project.
+
+### Requirements
+
+You need to have Python installed. You can create a virtual environment and
+install the required packages:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+If you already have `uv` installed, you can use it instead. If not, you can
+install it from the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/):
+
+```bash
+uv sync
+```
+
+Please note that the input and output filenames are defined inside the Python
+scripts and Verilog test benches. Check and modify those filenames when needed.
+
+### 1. Generate a Test Input
+
+Create a 16-bit PCM test signal containing 100 Hz and 4,000 Hz tones:
+
+```bash
+python scripts/generate_audio.py
+```
+Output
+```bash
+Successfully generated 'input_signal.wav' with frequencies: [100, 4000]
+```
+
+To check its frequency spectrum using the Fast Fourier Transform, modify
+`scripts/freq_spec.py`:
+
+```python
+DEFAULT_INPUT_AUDIOS = [
+    "input_signal.wav",
+]
+```
+
+Then run:
+
+```bash
+python scripts/freq_spec.py
+```
+Output:
+```bash
+Plot successfully saved to freq_spec_input_signal.png
+```
+
+<img src="media/freq_spec_input_signal.png" width="300" alt="Input Signal Frequency Spectrum">
+
+### 2. Test the Filter in Python
+
+Before testing the filter in Verilog, test the difference equation and the
+coefficients obtained during the derivation. This performs the low-pass
+filtering in Python and generates an output WAV file:
+
+```bash
+python scripts/digital_lpf.py
+```
+output
+```bash
+Successfully saved filtered audio to 'output_signal.wav'
+```
+
+Update `scripts/freq_spec.py` to use the generated file:
+
+```python
+DEFAULT_INPUT_AUDIOS = [
+    "output_signal.wav",
+]
+```
+
+Then run:
+
+```bash
+python scripts/freq_spec.py
+```
+Output:
+
+```bash
+Plot successfully saved to freq_spec_output_signal.png
+```
+
+<img src="media/freq_spec_output_signal.png" width="300" alt="Output with Python Filter Test">
+
+### 3. Convert the Audio to Hexadecimal
+
+Convert the generated WAV file to a hexadecimal file that can be read by the
+Verilog test bench:
+
+```bash
+python scripts/wav_to_hex.py
+```
+Output:
+```bash
+Successfully exported 30000 samples to 'audio_in.hex'.
+```
+
+This generates `audio_in.hex`.
+
+### 4. Add the Input to the Verilog Test Bench
+
+The filenames are assumed to be
+relative to the project root, and the output file is also generated there.
+
+The input file is loaded with:
+
+```verilog
+$readmemh("audio_in.hex", audio_mem);
+```
+
+The output filename is set with:
+
+```verilog
+file_out = $fopen("audio_out.hex", "w");
+```
+
+### 5. Run the Verilog Test Bench
+
+I created `runner.py` to find the Verilog modules recursively. This avoids
+having to list every module manually, for example:
+
+```bash
+iverilog -o something.vvp a.v b.v c.v
+```
+
+The `-i` option specifies the input test bench, and the `-d` option specifies
+the directory containing the Verilog modules. Run the low-pass filter test
+bench with:
+
+```bash
+python scripts/runner.py -i test_bench/tb_low_pass_filter.v -d verilog_modules
+```
+This will produce ```audio_out.hex```
+
+
+### 6. Convert the Verilog Output Back to WAV
+
+Convert the generated hexadecimal output file back into a WAV file:
+
+```bash
+python scripts/hex_to_wav.py
+```
+Output:
+```
+Successfully converted 30000 samples to 'output_audio.wav'.
+```
+
+### 7. Check the Filtered Output
+
+To check the frequency spectrum of the Verilog output, update
+`scripts/freq_spec.py`:
+
+```python
+DEFAULT_INPUT_AUDIOS = [
+    "output_audio.wav",
+]
+```
+
+Then run:
+
+```bash
+python scripts/freq_spec.py
+```
+
+<img src="media/freq_spec_output_audio.png" width="300" alt="Output Audio Filtered by the Verilog LPF Accelerator">
+
+Listen to the output audio and check its frequency spectrum to confirm that
+the high-frequency component has been removed.
+
 
 # References
 1. RISCV 32 vard
