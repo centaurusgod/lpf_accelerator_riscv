@@ -109,7 +109,7 @@ def build_and_run(top_file, modules, module_directories):
 
 def main():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    default_module_directory = os.path.join(project_root, "single_cycle_risc")
+    default_module_directory = os.path.join(project_root, "verilog_modules")
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
