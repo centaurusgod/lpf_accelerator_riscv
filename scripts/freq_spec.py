@@ -5,9 +5,7 @@ from pathlib import Path
 
 # Provide the input audio files to plot their frequency spectra
 DEFAULT_INPUT_AUDIOS = [
-    "input_signal.wav",
-    "filtered_lpf_signal.wav",
-    "single_lpf_accelerator_output.wav",
+    "output_signal.wav"
 ]
 
 
@@ -82,8 +80,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--output",
-        default="frequency_spectrum.png",
-        help="output image path",
+        help="output image path; defaults to freq_spec_<first input name>.png",
     )
     arguments = parser.parse_args()
-    plot_aggregate_frequency_spectrum(arguments.input_audios, arguments.output)
+    output_path = arguments.output
+    if output_path is None:
+        input_name = Path(arguments.input_audios[0]).stem
+        output_path = f"freq_spec_{input_name}.png"
+
+    plot_aggregate_frequency_spectrum(arguments.input_audios, output_path)

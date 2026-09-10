@@ -47,3 +47,7 @@ def save_filtered_audio(input_filename, output_filename):
         output_filename = input_filename.replace(".wav", "_lpf.wav")
 
     wav.write(output_filename, fs, y_audio_int16)
+
+    print(f"Successfully saved filtered audio to '{output_filename}'")
+
+save_filtered_audio("input_signal.wav", "output_signal.wav")

@@ -20,9 +20,10 @@
     - Converting .wav file to hex file
     - Converting .hex file back to .wav file
     - Plotting frequency spectrum
+7. Using LPF With Single Cycle RISCV Processor
 3. Perfomance Comparison
     - Instruction Vs Cycle Count Comparison(Yet to include)
-x. 
+x. Imporvements
 5. References
 
 
@@ -525,25 +526,25 @@ python scripts/freq_spec.py
 Listen to the output audio and check its frequency spectrum to confirm that
 the high-frequency component has been removed.
 
+8. Further Imporvements
+- Direct Form I -> Direct Form II COnversion
+- Combining multiple biquad elements to perform complex (n order filtering)
+- Processor provides/calculates the filter coefficients instead of hardcoding them inside verilog module
 
 # References
-1. RISCV 32 vard
-https://moodle.insa-lyon.fr/pluginfile.php/132782/course/section/74012/riscv-card.pdf
-
-2. fixed point vs floating point
-https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/
+1. Billinear Transofmration 
+- https://www.youtube.com/watch?v=JFQMoVd53Hw&list=LL&index=4&t=175s&pp=iAQBsAgC
+2. Frequency Prewraping 
+- https://www.youtube.com/watch?v=XtelHVBUAMo&list=LL&index=5&t=245s&pp=iAQBsAgC
+3. RISCV 32 Card | Instructions Opcode (Very important)
+- https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_GREEN_CARD.pdf
+3. Computer Architecture / Processor Design (RISCV)
+- https://www.youtube.com/watch?v=deuti8hWkeE&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q
+2. Fixed point numbers
+- https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/
 https://youtu.be/zVM8NKXsboA
+- https://en.wikipedia.org/wiki/Q_(number_format)
 
-
-3. Calculate the filter coeffiecients (trn into fixed point Q2.14 1 bit sign, 1 bit integer, 14 bit fraction)
-- our filter ranges (-1, +1.99)
-coeff * 2^14 scale
-b0=0.00094469, 15.4778, Round 15, BIN: 0000 0000 0000 1111
-b1=0.00188938, 30.9556, Round: 31, BIN: 0000 0000 0001 1111
-b2=0.00094469, 15.4778, Round: 15, BIN: 0000 0000 0000 1111
-
-a1=-1.911197, -31313.0516, Round:31313,  BIN(2's complement): 1000 0101 1010 1111
-a2=0.914976, 14990.9667, Round: 14991, BIN: 0011 1010 1000 1111
 
 
 4. Loading files into memory in verilog

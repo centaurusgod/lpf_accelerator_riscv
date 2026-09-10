@@ -39,7 +39,7 @@ module tb_low_pass_filter;
         $readmemh("audio_in.hex", audio_mem);
 
         // 3. Open output file for logging filtered hex samples
-        file_out = $fopen("sept_4_audio_out.hex", "w");
+        file_out = $fopen("audio_out.hex", "w");
 
         // Release reset after 20 ns
         #20;
