@@ -18,7 +18,6 @@ module mmio_wrapper (
     wire is_lpf_address = (address==LPF_ADDR);
     wire is_ram_address = !is_lpf_address;
     wire lpf_data_valid = mem_write && is_lpf_address;
-    wire lpf_rst = write_data[16];
 
     wire signed [15:0] lpf_y_out;
     wire [31:0] ram_read_data;
