@@ -55,34 +55,32 @@ module tb_single_cycle_processor;
         $readmemh("audio_in.hex", audio_samples);
 
         // Instruction Memory Initialization (Word-indexed by PC/4)
-        // Word 0 (PC 0x00): lui x3, 0x7          (28672)
+        // Word 0 (PC 0x00): lui x3, 0x7
         dut.im.mem_cell[0] = 32'h000071b7;
         // Word 1 (PC 0x04): addi x3, x3, 1328    (28672 + 1328 = 30000)
         dut.im.mem_cell[1] = 32'h53018193;
-        // Word 2 (PC 0x08): addi x2, x0, 0       (MMIO Addr x2 = 0x0)
-        dut.im.mem_cell[2] = 32'h00000113;
-        // Word 3 (PC 0x0C): addi x7, x0, 1       (Decrement value)
-        dut.im.mem_cell[3] = 32'h00100393;
+        // Word 2 (PC 0x08): addi x7, x0, 1       (Decrement value)
+        dut.im.mem_cell[2] = 32'h00100393;
 
         // LOOP: READ_AUDIO
-        // Word 4 (PC 0x10): sh x4, 0(x2)         (Write x4 to LPF @ 0x0)
-        dut.im.mem_cell[4] = 32'h00401023;
-        // Word 5 (PC 0x14): lh x5, 0(x2)         (Read y_out from LPF @ 0x0)
-        dut.im.mem_cell[5] = 32'h00001283;
-        // Word 6 (PC 0x18): sub x3, x3, x7       (x3 = x3 - 1)
-        dut.im.mem_cell[6] = 32'h407181b3;
-        // Word 7 (PC 0x1C): bne x3, x0, -12      (Branch to PC 0x10)
-        dut.im.mem_cell[7] = 32'hfe019ae3;
+        // Word 3 (PC 0x0C): sh x4, 0(x0)         (Write x4 to LPF @ 0x0)
+        dut.im.mem_cell[3] = 32'h00401023;
+        // Word 4 (PC 0x10): lh x5, 0(x0)         (Read y_out from LPF @ 0x0)
+        dut.im.mem_cell[4] = 32'h00001283;
+        // Word 5 (PC 0x14): sub x3, x3, x7       (x3 = x3 - 1)
+        dut.im.mem_cell[5] = 32'h407181b3;
+        // Word 6 (PC 0x18): bne x3, x0, -12      (Branch to PC 0x0C)
+        dut.im.mem_cell[6] = 32'hfe019ae3;
 
         // Assert reset for 1 full clock cycle
         #10;
         reset = 0;
     end
 
-    // Direct sample driver: Load current audio sample into x4 when PC is at 0x0C (1 cycle BEFORE 0x10 execution)
+    // Direct sample driver: Load current audio sample into x4 when the loop is about to execute.
     always @(negedge clk) begin
         if (!reset) begin
-            if (address_of_pc == 32'h0c || address_of_pc == 32'h1c) begin
+            if (address_of_pc == 32'h0c || address_of_pc == 32'h18) begin
                 if (sample_index < 30000) begin
                     dut.reg_file.x[4] = {{16{audio_samples[sample_index][15]}}, audio_samples[sample_index]};
                 end
@@ -90,10 +88,10 @@ module tb_single_cycle_processor;
         end
     end
 
-    // File Writer: Capture y_out from register x5 after lh instruction executes at PC 0x14
+    // File Writer: Capture y_out from register x5 after the lh instruction executes at PC 0x10.
     always @(posedge clk) begin
         if (!reset) begin
-            if (address_of_pc == 32'h14) begin
+            if (address_of_pc == 32'h10) begin
                 #1; // Delay 1ns to wait for register file write-back to finish
                 $fdisplay(file_out, "%04X", dut.reg_file.x[5][15:0]);
                 sample_index = sample_index + 1;
@@ -105,7 +103,7 @@ module tb_single_cycle_processor;
     initial begin
         forever begin
             @(posedge clk);
-            if (!reset && address_of_pc == 32'h1c && dut.reg_file.x[3] == 0) begin
+            if (!reset && address_of_pc == 32'h18 && dut.reg_file.x[3] == 0) begin
                 #20;
                 $fclose(file_out);
                 $display("\nSuccessfully processed %0d samples directly through LPF MMIO.", sample_index);

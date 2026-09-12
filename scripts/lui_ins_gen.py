@@ -3,10 +3,16 @@
 # Use this instruction provided by this script in https://riscv-simulator-five.vercel.app/ to generate the machine code
 
 
+def format_hex_imm(value: int) -> str:
+    if value >= 0:
+        return f"0x{value:x}"
+    return f"-0x{abs(value):x}"
+
+
 def generate_riscv_load_imm(reg: str, val: int) -> list[str]:
     # Handle values that fit in a single sign-extended 12-bit immediate (-2048 to 2047)
     if -2048 <= val <= 2047:
-        return [f"addi {reg}, x0, {val}"]
+        return [f"addi {reg}, x0, {format_hex_imm(val)}"]
 
     # Extract lower 12 bits and upper 20 bits
     lower_12 = val & 0xFFF
@@ -23,9 +29,9 @@ def generate_riscv_load_imm(reg: str, val: int) -> list[str]:
 
     instructions = []
     if upper_20 != 0:
-        instructions.append(f"lui  {reg}, {hex(upper_20)}")
+        instructions.append(f"lui {reg}, {format_hex_imm(upper_20)}")
     if addi_imm != 0:
-        instructions.append(f"addi {reg}, {reg}, {addi_imm}")
+        instructions.append(f"addi {reg}, {reg}, {format_hex_imm(addi_imm)}")
 
     return instructions
 

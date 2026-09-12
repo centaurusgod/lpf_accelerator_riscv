@@ -1,3 +1,10 @@
+# Motivation
+Created this project to create a simple hardware accelerator and how it works with co-operation with a general purpose processor. 
+
+# What is this?
+A 2nd order butterworth low pass filter as a hardware accelerator that is working in collaboration with a single cycle RISCV Processor in a MMIO interface.
+
+
 # Index
 1. Brief & Working
 2. Images and Outputs (to provide summary beforehand)
@@ -526,10 +533,88 @@ python scripts/freq_spec.py
 Listen to the output audio and check its frequency spectrum to confirm that
 the high-frequency component has been removed.
 
-8. Further Imporvements
+# Interfacing the LPF Accelerator with the Single-Cycle RISC-V Processor
+
+To keep the design simple and avoid the complexity of DMA, we use a memory-mapped I/O approach. The low-pass filter is placed at the base address `0x00000000H`, and the processor communicates with it through normal load and store instructions. This keeps the accelerator transparent from the perspective of the CPU while allowing the filter to behave like a peripheral device connected to the memory bus.
+
+Because the filter operates on 16-bit PCM samples, we use the halfword instructions `sh` and `lh`. The input sample is written to the LPF via `sh x4, 0(x0)`, and the filtered output is read back with `lh x5, 0(x0)`. The base register is `x0`, so the effective memory address is simply `0x00000000`, which keeps the interface minimal and avoids unnecessary register initialization.
+
+The test bench in `test_bench/tb_single_cycle_processor.v` demonstrates this flow. It loads the audio data from `audio_in.hex`, writes a sample into `x4`, executes the store instruction to the LPF MMIO address, reads the processed output into `x5`, and then writes that result to an output file. This is exactly how we validate the processor and the accelerator working together without introducing extra hardware or software complexity.
+
+The loop used to process all samples is shown below. It first initializes a loop counter to `30000` (as we have 30000 samples of audio), then repeatedly writes an input sample to the filter, reads the filtered output, decrements the counter, and branches until the counter reaches zero.
+
+| Instruction Memory Address | Instruction/Machine Code | Basic Instruction | Comment |
+| --- | --- | --- | --- |
+| `0x00000000` | `0x000071b7` | `lui x3, 0x7` | Load the upper 20 bits needed to initialize `x3` with the value `30000` |
+| `0x00000004` | `0x53018193` | `addi x3, x3, 0x530` | Set the lower bits of `x3` so that `x3 = 30000` |
+| `0x00000008` | `0x00100393` | `addi x7, x0, 1` | Initialize `x7 = 1` for decrementing the loop counter |
+| `0x0000000C` (`loop:`) | `0x00401023` | `sh x4, 0(x0)` | Write the current sample from `x4` to the LPF at address `0x00000000H` |
+| `0x00000010` | `0x00001283` | `lh x5, 0(x0)` | Read the filtered sample back from the LPF output into `x5` |
+| `0x00000014` | `0x407181b3` | `sub x3, x3, x7` | Decrement the counter: `x3 = x3 - 1` |
+| `0x00000018` | `0xfe019ae3` | `bne x3, x0, 0x0000000c` | Repeat the loop until the count reaches zero |
+
+This sequence is intentionally simple: the CPU is not computing the filter itself, but is acting as the control and data transfer mechanism while the accelerator performs the DSP work.
+
+## How the Test Bench Is Built and Used
+
+The verification flow is implemented in `test_bench/tb_single_cycle_processor.v`. The test bench does the following:
+
+1. Reads a 16-bit PCM audio file converted earlier into a hexadecimal memory image.
+2. Initializes the processor instruction memory with the loop shown above.
+3. Drives the audio sample values into `x4` as the program executes.
+4. Writes each filtered output value from `x5` into a file named `single_lf.hex`.
+5. Stops automatically once the loop counter reaches zero.
+
+The key idea is that the data is not loaded into the general-purpose data memory in a large static block. Instead, the test bench updates `x4` dynamically during simulation so that each sample can be sent to the LPF in sequence. This mirrors the actual runtime behavior of the processor-accelerator interface more closely than storing a massive memory array in the data memory itself.
+
+## Running the Simulation
+(Note: Please validate and modify code so the name of input file matches)
+Once the input audio has already been converted to `audio_in.hex`, the test bench is run with:
+
+```bash
+python scripts/runner.py -i test_bench/tb_single_cycle_processor.v
+```
+Example output:
+
+```bash
+Running simulation:
+
+Successfully processed 30000 samples directly through LPF MMIO.
+Output saved to single_lf.hex
+```
+
+## Checking the Output and Converting Back to Audio
+
+After the simulation completes, the generated hex file can be converted into a WAV audio signal with:
+(As mentioned in earlier section, modify the code so input file name matches)
+
+```bash
+python scripts/hex_to_wav.py
+```
+
+This creates a reconstructed audio file, which in the current flow is saved as `single_lf.wav`.
+
+Example output:
+
+```bash
+Successfully converted 30000 samples to 'single_lf.wav'.
+```
+
+To inspect the frequency content of the processed output, update the input file in `scripts/freq_spec.py` to point to the generated waveform, and run:
+
+```bash
+python scripts/freq_spec.py
+```
+Output:
+``` Plot successfully saved to freq_spec_single_lf.png```
+
+![Single LF Freq Spectra](media/freq_spec_single_lf.png)
+
+# Further Imporvements Required
 - Direct Form I -> Direct Form II COnversion
 - Combining multiple biquad elements to perform complex (n order filtering)
 - Processor provides/calculates the filter coefficients instead of hardcoding them inside verilog module
+- etc. will keep adding on realization
 
 # References
 1. Billinear Transofmration 
@@ -544,7 +629,12 @@ the high-frequency component has been removed.
 - https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/
 https://youtu.be/zVM8NKXsboA
 - https://en.wikipedia.org/wiki/Q_(number_format)
-
+6. RISCV Simulator | RISCV Web Application (Use this to convert assembly code to machine code to use in our test benches
+)
+- https://riscv-simulator-five.vercel.app/
+7. Loading Large Constants In A Register
+- https://www.youtube.com/watch?v=nJckMamow9E&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q&index=37
+- https://www.youtube.com/watch?v=jK4wvwzmbwk&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q&index=38
 
 
 4. Loading files into memory in verilog
