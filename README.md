@@ -1,106 +1,99 @@
-# Motivation
-Created this project to create a simple hardware accelerator and how it works with co-operation with a general purpose processor. 
+# RISC-V Low-Pass Filter Accelerator
 
-# What is this?
-A 2nd order butterworth low pass filter as a hardware accelerator that is working in collaboration with a single cycle RISCV Processor in a MMIO interface.
+This project implements a second-order Butterworth low-pass filter as a hardware
+accelerator for a 32-bit single-cycle RISC-V processor. The processor sends
+16-bit PCM samples to the accelerator through memory-mapped I/O (MMIO), and the
+accelerator returns the filtered samples.
 
+The design uses the RV32I integer subset, fixed-point coefficients, parallel
+multiply-accumulate hardware, and delay registers. The filter is mapped at
+`0x00000000`.
 
-# Index
-1. Brief & Working
-2. Images and Outputs (to provide summary beforehand)
-    - Image output from DigitalJS
-3. Construction Of 2nd Order ButterWorth Low Pass Filter
- - Derivation Of 2nd Order Butterworth Low pass filter
-    - Starting equation, 
-    - Filter Design Problem
-    - Bilinear Transformation 7 Z-transform
-    - Difference equation
-    - Direct Form-I
-5. Consturciton of Filter in Verilog
-    - Floating Point vs Fixed Point 
-    - Mention riscv32I so to work in existing work instead of implementing floating units
-    - perofmring conversions etc
-    - Show the loss in precision 58.xx vs 56 as output
-6. How to use this project for yours, python scripts, /scripts folder
-    - Compile & run verilog test bench code
-    - Generating audio
-    - Converting .wav file to hex file
-    - Converting .hex file back to .wav file
-    - Plotting frequency spectrum
-7. Using LPF With Single Cycle RISCV Processor
-3. Perfomance Comparison
-    - Instruction Vs Cycle Count Comparison(Yet to include)
-x. Imporvements
-5. References
+## Contents
 
+- [Overview](#overview)
+- [Input and output results](#input-and-output-results)
+- [Filter design](#filter-design)
+    - [Sampling and Nyquist limit](#sampling-and-nyquist-limit)
+    - [Analog prototype and pole selection](#analog-prototype-and-pole-selection)
+    - [Frequency scaling and pre-warping](#frequency-scaling-and-pre-warping)
+    - [Bilinear transformation](#bilinear-transformation)
+    - [Difference equation](#difference-equation)
+    - [Direct Form I](#direct-form-i)
+- [Fixed-point Verilog implementation](#fixed-point-verilog-implementation)
+- [Running the tests](#running-the-tests)
+- [RISC-V and MMIO integration](#risc-v-and-mmio-integration)
+    - [Finding RISC-V machine code](#finding-risc-v-machine-code)
+- [Performance](#performance)
+- [Planned improvements](#planned-improvements)
+- [References](#references)
 
+## Overview
 
-# Single Cycle RISC-V Processor (32bit) Integer Subset
-- RiscV32 (I) Implementation with Butterworth Second Order Low Pass Filter as Hardware Accelerator being interfaced on Memory Mapped 0x00000000H.
-- Processes audio via dedicated accelerator (consisting of parallel adders and multipliers and delay registers) instead of sequential eexcution by processor
-- Low Pass Filter Diagram
-![Low Pass Filter](media/low_pass_filter.png)
-- RISCV32 Single Cycle Processor Diagram
-![Single Cycle RISC-V Processor](media/riscv_with_lpf_accelerator.png)
+The accelerator performs the filter's multiply-accumulate operation in parallel
+instead of executing the complete difference equation as a sequence of CPU
+instructions. The processor remains responsible for control and sample transfer.
 
-Note: Few unnecessary wires/regs are being used for output, because simulating on digitaljs
-it was harder to see what was the value in different regs eg, alu_output, Program Counter etc.
+The single-cycle RISC-V processor used in this project follows the design
+principles covered in the [[4]](#reference-4).
 
-# Input & Output Demonstration
-Note: How to generate audio and test filtering action in verilog and reconstruct audio back, do frequency analysis are all present on Section 6.
+### 2nd Order Butterworth Low Pass Filter
+![Low-pass filter](media/low_pass_filter.png)
 
-The input is a 3-second, 16-bit PCM signal generated with SciPy. It combines
-100 Hz and 4,000 Hz sine waves.
+### Single-cycle RISC-V Processor with LPF accelerator
+![Single-cycle RISC-V processor with LPF accelerator](media/riscv_with_lpf_accelerator.png)
 
-**Input signal**
-**HEARING WARNING: Contains 4000 Hz Sound**
+The DigitalJS diagrams include a few extra wires and registers to make internal
+signals such as the ALU result and program counter visible during simulation.
 
-- **Input Signal (A hum and a tin sound)**
+## Input and output results
+
+The example input is a 3-second, 16-bit PCM signal generated with SciPy. It
+contains 100 Hz and 4,000 Hz sine waves. The 4,000 Hz component is intentionally
+included so that the low-pass behavior is easy to observe.
+
+**Hearing warning: the input contains a 4,000 Hz tone.**
+(Note: I converted the wav into mp4 using ffmpeg so it'd be easier to show in readme markdown)
+- Input signal
 
 https://github.com/user-attachments/assets/da812555-eda7-4a3b-aa57-20f6f05ca55a
 
-- Output Audio: (Filtering action via python script, before testing in verilog)
+- Python-filtered output
 
 https://github.com/user-attachments/assets/1bf2b3b9-f98f-4fc8-accc-5338da5ace6d
 
-- Output Audio via Verilog LPF processing
+- Verilog-filtered output
 
 https://github.com/user-attachments/assets/c2acd90c-50c1-4719-ba5c-3ec40075e909
 
-## Frequency Spectrum Analysis
-- The input signal in [audios/input_signal.wav](audios/input_signal.wav) contains two tones: 100 Hz and 4,000 Hz.
-- The filtered output in [audios/filtered_lpf_signal.wav](audios/filtered_lpf_signal.wav) keeps only the 100 Hz component, showing the low-pass filter removes the high-frequency tone.
-- The processor output in [audios/single_lpf_accelerator_output.wav](audios/single_lpf_accelerator_output.wav) matches this behavior, confirming the hardware implementation works correctly.
-- The frequency plot compares the input and filtered spectra side by side. ![Frequency Analysis](media/frequency_spectrum.png)
+The input spectrum contains both tones, while the filtered output retains the
+100 Hz component:
 
+![Frequency analysis](media/frequency_spectrum.png)
 
-# Performance Comparison
-- To include soon..
-
+The repository also contains the generated WAV and plot files under `audios/`
+and `media/`.
 
 ## Designing a 2nd Order Butterworth Low Pass Filter
 
-*   I started with a design problem. I want to design a butterworth low pass filter. I will use two superimposed signals for testing 100Hz and 4000Hz, so my lpf should have cut off frequency at 100Hz. As 1st order may be too weak (The more we increase order, the closer we get to ideal low pass filter). So searching online and suggestion from gemini, I decided to start with 2nd order.
-*   If you are just looking for the final equation that can be used quickly in verilog, you can skip the derivation and directly use the difference equation $y[n]$.
+I started with a random design problem. I want to design a butterworth low pass filter. I will use two superimposed signals for testing 100Hz and 4000Hz, so my lpf should have cut off frequency at 100Hz.
 
----
+The target is a second-order Butterworth low-pass filter with a 100 Hz cutoff
+and a 10,000 Hz sampling frequency. The derivation below produces the digital
+biquad coefficients used by the Verilog implementation.
 
-## Sampling Frequency and Nyquist Theorem Notes
+### Sampling and Nyquist limit
 
-*   **Note on Sampling Frequency:** I am choosing a sampling frequency of $10,000\text{ Hz}$ as suggested by the Nyquist theorem.
-*   **Initial Test:** Used a $100\text{ Hz} + 5000\text{ Hz}$ superimposed signal initially. However, perhaps due to hitting the exact Nyquist rate (where the highest frequency component equals half the sampling rate), I heard nothing in the generated audio.
-*   Later, I used a $100\text{ Hz} + 4000\text{ Hz}$ sine superimposed signal to stay safely below the Nyquist limit.
-*   According to the Nyquist-Shannon sampling theorem, to accurately reconstruct a bandlimited signal without aliasing, the sampling frequency ($f_s$) must be strictly greater than twice the maximum frequency ($f_{\max}$) present in the signal:
+The sampling frequency must be greater than twice the highest input frequency:
 
 $$f_s > 2 f_{\max}$$
 
-*   Higher frequency component in my signal = $4000\text{ Hz}$, so $f_s > 8000\text{ Hz}$ was safe but I chose $10,000\text{ Hz}$.
+The highest test tone is 4,000 Hz, so a sampling frequency above 8,000 Hz is
+required. The design uses $f_s = 10,000\text{ Hz}$, keeping the test tone below
+the Nyquist limit. A 5,000 Hz test tone was avoided because it lies exactly at
+the Nyquist frequency.
 
----
-
-## The Derivation
-
-### 1. Analog Prototype and Pole Selection
+### Analog prototype and pole selection
 
 A Butterworth filter is defined by having a maximally flat magnitude response in the passband. The magnitude squared response for a normalized analog Butterworth filter ($\Omega_c = 1\text{ rad/s}$) is:
 
@@ -139,7 +132,7 @@ Expanding this difference of squares yields the normalized prototype:
 
 $$H_n(s) = \frac{1}{s^2 + \sqrt{2}s + 1}$$
 
-### Frequency Scaling Beforehand
+### Frequency scaling
 
 To scale to the desired cutoff frequency $\Omega_p$, we substitute $s \to \frac{s}{\Omega_p}$. 
 
@@ -149,7 +142,9 @@ Multiplying the numerator and denominator by $\Omega_p^2$ gives:
 
 $$H_a(s) = \frac{\Omega_p^2}{s^2 + \sqrt{2}\Omega_p s + \Omega_p^2}$$
 
-### 2. Frequency Pre-Warping
+### Frequency scaling and pre-warping
+
+The pre-warping relationship used here follows the frequency-pre-warping reference in [[2]](#reference-2).
 
 *(Note: As our end goal is to process audio in a digital/binary system, we are talking about digital frequency here).*
 
@@ -174,7 +169,9 @@ Dividing the numerator and denominator by $K^2 \tan^2(0.01\pi)$ formats it perfe
 
 $$H_a(s) = \frac{1}{\frac{1}{K^2 \tan^2(0.01\pi)}s^2 + \frac{\sqrt{2}}{K\tan(0.01\pi)}s + 1}$$
 
-### 3. Bilinear Transformation (Analog -> Digital)
+### Bilinear transformation
+
+The bilinear transformation used to map the analog filter into the digital domain follows [[1]](#reference-1).
 
 The Bilinear Transformation maps the analog s-plane to the discrete z-plane using the substitution:
 $$s = \frac{2}{T}\left(\frac{1 - z^{-1}}{1 + z^{-1}}\right)$$
@@ -204,7 +201,7 @@ Expanding the binomials in the denominator and grouping by powers of $z$ produce
 
 $$H(z) = \frac{1 + 2z^{-1} + z^{-2}}{(A^2 + \sqrt{2}A + 1) + 2(1 - A^2)z^{-1} + (A^2 - \sqrt{2}A + 1)z^{-2}}$$
 
-### 4. Transfer Function & Difference Equation
+### Difference equation
 
 To map this to standard Biquad form, we divide all terms by the constant denominator factor $D_0 = (A^2 + \sqrt{2}A + 1)$ to normalize $a_0$ to $1$. We need to map the transfer function as:
 
@@ -236,12 +233,17 @@ $$y[n] + a_1 y[n-1] + a_2 y[n-2] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2]$$
 
 $$y[n] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2] - a_1 y[n-1] - a_2 y[n-2]$$
 
-### 5. Direct Form - I representation
-- <img src="https://ccrma.stanford.edu/~jos/fp/img76_2x.png" width="400" alt="Direct Form I Representation">
+### Direct Form I
 
-### 5. Floating Point Coefficients To Fixed Point Conversion
+The Direct Form I structure is shown below. [[9]](#reference-9)
+
+<img src="https://ccrma.stanford.edu/~jos/fp/img76_2x.png" width="400" alt="Direct Form I representation">
+
+## Fixed-point Verilog implementation
 
 Because our processor implements a subset of the RV32I base integer instruction set, it lacks native floating-point hardware support. To solve this, we will use fixed-point numbers.
+
+The RV32I instruction-set context is described by the RISC-V reference card in [[3]](#reference-3). The fixed-point representation and Q-format terminology follow [[5]](#reference-5).
 
 Checking the filter coefficients, we observe the following extremes:
 *   **Maximum positive value:** $+0.914975$
@@ -251,7 +253,6 @@ To represent these in a 16-bit register, a Q2.14 fixed-point format is sufficien
 A signed Q2.14 format consists of 1 sign bit, 1 integer bit, and 14 fractional bits. This provides a representable range from a minimum of $-2.0$ (binary `10.0000 0000 0000 00`) to a maximum of $+1.99993896...$ (binary `01.1111 1111 1111 11`). Since our coefficients strictly fall within the $[-2.0, +1.9999]$ boundary, this format perfectly covers our required range without overflow.
 
 *   **Precision (Step Size):** $2^{-14} = \frac{1}{16384} \approx 0.000061035$
-    *(Yes, the smallest non-zero number we can represent is exactly the step size between any two consecutive representable numbers).*
 
 To convert a coefficient to this integer format, we multiply by the scaling factor $2^{14} = 16384$. We are essentially finding how many LSB steps of size $\frac{1}{16384}$ are needed to build the target value. For example, building $0.914975$:
 
@@ -347,19 +348,19 @@ endmodule
 
 ```
 
-As we do not want to complicate our system using DMA, we use the Memory Mapped IO (MMIO) concept to place the LPF accelerator into the `0x00000000H` address space for simplicity.
+As we do not want to complicate our system using DMA, we use memory-mapped I/O (MMIO) to place the LPF accelerator at address `0x00000000` for simplicity.
 
-Please check: `single_cycle_risc/mmio_wrapper.v`
+The MMIO logic is implemented in [`verilog_modules/mmio_wrapper.v`](verilog_modules/mmio_wrapper.v).
 
-Find the test benches for the low pass filter, MMIO wrapper, and single-cycle processor combining everything here.
+The focused test benches are [`test_bench/tb_low_pass_filter.v`](test_bench/tb_low_pass_filter.v), [`test_bench/tb_mmio_wrapper.v`](test_bench/tb_mmio_wrapper.v), and [`test_bench/tb_single_cycle_processor.v`](test_bench/tb_single_cycle_processor.v).
 
 *Note: The primary purpose of this guide is not to build the single-cycle processor or RISC-V processor from scratch, but everything will be included in the reference section.*
 
-## How to Test the Hardware
+## Running the tests
 
 This section explains how I tested the hardware created in this project.
 
-### Requirements
+### Setup
 
 You need to have Python installed. You can create a virtual environment and
 install the required packages:
@@ -380,7 +381,7 @@ uv sync
 Please note that the input and output filenames are defined inside the Python
 scripts and Verilog test benches. Check and modify those filenames when needed.
 
-### 1. Generate a Test Input
+### Generate a test input
 
 Create a 16-bit PCM test signal containing 100 Hz and 4,000 Hz tones:
 
@@ -413,7 +414,7 @@ Plot successfully saved to freq_spec_input_signal.png
 
 <img src="media/freq_spec_input_signal.png" width="300" alt="Input Signal Frequency Spectrum">
 
-### 2. Test the Filter in Python
+### Test the filter in Python
 
 Before testing the filter in Verilog, test the difference equation and the
 coefficients obtained during the derivation. This performs the low-pass
@@ -448,7 +449,7 @@ Plot successfully saved to freq_spec_output_signal.png
 
 <img src="media/freq_spec_output_signal.png" width="300" alt="Output with Python Filter Test">
 
-### 3. Convert the Audio to Hexadecimal
+### Convert audio to hexadecimal
 
 Convert the generated WAV file to a hexadecimal file that can be read by the
 Verilog test bench:
@@ -463,7 +464,7 @@ Successfully exported 30000 samples to 'audio_in.hex'.
 
 This generates `audio_in.hex`.
 
-### 4. Add the Input to the Verilog Test Bench
+### Configure the Verilog test bench
 
 The filenames are assumed to be
 relative to the project root, and the output file is also generated there.
@@ -474,13 +475,15 @@ The input file is loaded with:
 $readmemh("audio_in.hex", audio_mem);
 ```
 
+The `$readmemh` memory-initialization approach is described in [[8]](#reference-8).
+
 The output filename is set with:
 
 ```verilog
 file_out = $fopen("audio_out.hex", "w");
 ```
 
-### 5. Run the Verilog Test Bench
+### Run the Verilog test bench
 
 I created `runner.py` to find the Verilog modules recursively. This avoids
 having to list every module manually, for example:
@@ -499,7 +502,7 @@ python scripts/runner.py -i test_bench/tb_low_pass_filter.v -d verilog_modules
 This will produce ```audio_out.hex```
 
 
-### 6. Convert the Verilog Output Back to WAV
+### Convert Verilog output back to WAV
 
 Convert the generated hexadecimal output file back into a WAV file:
 
@@ -511,7 +514,7 @@ Output:
 Successfully converted 30000 samples to 'output_audio.wav'.
 ```
 
-### 7. Check the Filtered Output
+### Inspect the filtered output
 
 To check the frequency spectrum of the Verilog output, update
 `scripts/freq_spec.py`:
@@ -533,19 +536,33 @@ python scripts/freq_spec.py
 Listen to the output audio and check its frequency spectrum to confirm that
 the high-frequency component has been removed.
 
-# Interfacing the LPF Accelerator with the Single-Cycle RISC-V Processor
+## Interfacing LPF Accelerator Using RISC-V 32(I) Processor
 
 To keep the design simple and avoid the complexity of DMA, we use a memory-mapped I/O approach. The low-pass filter is placed at the base address `0x00000000H`, and the processor communicates with it through normal load and store instructions. This keeps the accelerator transparent from the perspective of the CPU while allowing the filter to behave like a peripheral device connected to the memory bus.
 
 Because the filter operates on 16-bit PCM samples, we use the halfword instructions `sh` and `lh`. The input sample is written to the LPF via `sh x4, 0(x0)`, and the filtered output is read back with `lh x5, 0(x0)`. The base register is `x0`, so the effective memory address is simply `0x00000000`, which keeps the interface minimal and avoids unnecessary register initialization.
 
-The test bench in `test_bench/tb_single_cycle_processor.v` demonstrates this flow. It loads the audio data from `audio_in.hex`, writes a sample into `x4`, executes the store instruction to the LPF MMIO address, reads the processed output into `x5`, and then writes that result to an output file. This is exactly how we validate the processor and the accelerator working together without introducing extra hardware or software complexity.
+The test bench in `test_bench/tb_single_cycle_processor.v` demonstrates this flow. It loads the audio data from `audio_in.hex`, writes a sample into `x4`, executes the store instruction to the LPF MMIO address, reads the processed output into `x5`, and then writes that result to an output file.
 
 The loop used to process all samples is shown below. It first initializes a loop counter to `30000` (as we have 30000 samples of audio), then repeatedly writes an input sample to the filter, reads the filtered output, decrements the counter, and branches until the counter reaches zero.
 
+### Finding RISC-V machine code
+
+The assembly instructions used by the processor test bench must be converted
+into 32-bit machine-code values before they are placed in instruction memory.
+The [RISC-V simulator](https://riscv-simulator-five.vercel.app/) from reference
+[[6]](#reference-6) can be used to assemble or inspect the machine code for instructions.
+
+<img src="media/riscv_simulator_machine_code.png" width="955" height="387" alt="RISC-V simulator machine-code output">
+
+The generated hexadecimal values are then copied into the instruction-memory
+initialization used by the test bench. The simulator is useful for checking
+opcode, register, immediate, and branch-offset fields before running the
+Verilog simulation.
+
 | Instruction Memory Address | Instruction/Machine Code | Basic Instruction | Comment |
 | --- | --- | --- | --- |
-| `0x00000000` | `0x000071b7` | `lui x3, 0x7` | Load the upper 20 bits needed to initialize `x3` with the value `30000` |
+| `0x00000000` | `0x000071b7` | `lui x3, 0x7` | Load the upper 20 bits needed to initialize `x3` with the value `30000`; see [[7]](#reference-7) for loading large constants into a register |
 | `0x00000004` | `0x53018193` | `addi x3, x3, 0x530` | Set the lower bits of `x3` so that `x3 = 30000` |
 | `0x00000008` | `0x00100393` | `addi x7, x0, 1` | Initialize `x7 = 1` for decrementing the loop counter |
 | `0x0000000C` (`loop:`) | `0x00401023` | `sh x4, 0(x0)` | Write the current sample from `x4` to the LPF at address `0x00000000H` |
@@ -555,7 +572,7 @@ The loop used to process all samples is shown below. It first initializes a loop
 
 This sequence is intentionally simple: the CPU is not computing the filter itself, but is acting as the control and data transfer mechanism while the accelerator performs the DSP work.
 
-## How the Test Bench Is Built and Used
+### How the test bench works
 
 The verification flow is implemented in `test_bench/tb_single_cycle_processor.v`. The test bench does the following:
 
@@ -567,7 +584,7 @@ The verification flow is implemented in `test_bench/tb_single_cycle_processor.v`
 
 The key idea is that the data is not loaded into the general-purpose data memory in a large static block. Instead, the test bench updates `x4` dynamically during simulation so that each sample can be sent to the LPF in sequence. This mirrors the actual runtime behavior of the processor-accelerator interface more closely than storing a massive memory array in the data memory itself.
 
-## Running the Simulation
+### Run the processor simulation
 (Note: Please validate and modify code so the name of input file matches)
 Once the input audio has already been converted to `audio_in.hex`, the test bench is run with:
 
@@ -583,7 +600,7 @@ Successfully processed 30000 samples directly through LPF MMIO.
 Output saved to single_lf.hex
 ```
 
-## Checking the Output and Converting Back to Audio
+### Convert and inspect the processor output
 
 After the simulation completes, the generated hex file can be converted into a WAV audio signal with:
 (As mentioned in earlier section, modify the code so input file name matches)
@@ -608,37 +625,40 @@ python scripts/freq_spec.py
 Output:
 ``` Plot successfully saved to freq_spec_single_lf.png```
 
-![Single LF Freq Spectra](media/freq_spec_single_lf.png)
+<img src="media/freq_spec_single_lf.png" width="300" alt="Single LF Freq Spectra">
 
-# Further Imporvements Required
-- Direct Form I -> Direct Form II COnversion
-- Combining multiple biquad elements to perform complex (n order filtering)
-- Processor provides/calculates the filter coefficients instead of hardcoding them inside verilog module
-- etc. will keep adding on realization
+## Performance
 
-# References
-1. Billinear Transofmration 
-- https://www.youtube.com/watch?v=JFQMoVd53Hw&list=LL&index=4&t=175s&pp=iAQBsAgC
-2. Frequency Prewraping 
-- https://www.youtube.com/watch?v=XtelHVBUAMo&list=LL&index=5&t=245s&pp=iAQBsAgC
-3. RISCV 32 Card | Instructions Opcode (Very important)
-- https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_GREEN_CARD.pdf
-3. Computer Architecture / Processor Design (RISCV)
-- https://www.youtube.com/watch?v=deuti8hWkeE&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q
-2. Fixed point numbers
-- https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/
-https://youtu.be/zVM8NKXsboA
-- https://en.wikipedia.org/wiki/Q_(number_format)
-6. RISCV Simulator | RISCV Web Application (Use this to convert assembly code to machine code to use in our test benches
-)
-- https://riscv-simulator-five.vercel.app/
-7. Loading Large Constants In A Register
-- https://www.youtube.com/watch?v=nJckMamow9E&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q&index=37
-- https://www.youtube.com/watch?v=jK4wvwzmbwk&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q&index=38
+The performance comparison is not yet complete. The intended comparison is the
+instruction and cycle count for processor-only filtering versus accelerator-
+assisted filtering. The existing plotting utility is
+[`plot_performance_comparison.py`](plot_performance_comparison.py).
 
+## Planned improvements
 
-4. Loading files into memory in verilog
-- https://projectf.io/posts/initialize-memory-in-verilog/#:~:text=Verilog%20allows%20you%20to%20initialize%20memory%20from,file%20containing%20binary%20values%20separated%20by%20whitespace.
+- Convert Direct Form I to Direct Form II.
+- Combine multiple biquad sections for higher-order filters.
+- Allow the processor to provide or calculate filter coefficients instead of
+    hard-coding them in the Verilog module.
+- Add a reproducible instruction-count and cycle-count comparison.
 
-5. Direct Form i represnetaiton
-- https://ccrma.stanford.edu/~jos/fp/img76_2x.png
+## References
+
+<a id="reference-1"></a>
+1. [Bilinear transformation](https://www.youtube.com/watch?v=JFQMoVd53Hw&list=LL&index=4&t=175s&pp=iAQBsAgC)
+<a id="reference-2"></a>
+2. [Frequency pre-warping](https://www.youtube.com/watch?v=XtelHVBUAMo&list=LL&index=5&t=245s&pp=iAQBsAgC)
+<a id="reference-3"></a>
+3. [RISC-V 32 instruction and opcode reference card](https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_GREEN_CARD.pdf)
+<a id="reference-4"></a>
+4. [Computer architecture and RISC-V processor design](https://www.youtube.com/watch?v=deuti8hWkeE&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q)
+<a id="reference-5"></a>
+5. [Fixed-point representation](https://www.geeksforgeeks.org/computer-organization-architecture/fixed-point-representation/), [Q number format](https://en.wikipedia.org/wiki/Q_(number_format)), and [fixed-point video](https://youtu.be/zVM8NKXsboA)
+<a id="reference-6"></a>
+6. [RISC-V simulator](https://riscv-simulator-five.vercel.app/)
+<a id="reference-7"></a>
+7. [Loading large constants into a register](https://www.youtube.com/watch?v=nJckMamow9E&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q&index=37) and [follow-up video](https://www.youtube.com/watch?v=jK4wvwzmbwk&list=PLq5K7Zq6zbGO2OO7Y9a7h0iEWK5gDYw_q&index=38)
+<a id="reference-8"></a>
+8. [Loading files into Verilog memory](https://projectf.io/posts/initialize-memory-in-verilog/#:~:text=Verilog%20allows%20you%20to%20initialize%20memory%20from,file%20containing%20binary%20values%20separated%20by%20whitespace.)
+<a id="reference-9"></a>
+9. [Direct Form I representation](https://ccrma.stanford.edu/~jos/fp/img76_2x.png)
