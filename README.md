@@ -641,6 +641,7 @@ assisted filtering. The existing plotting utility is
 - Allow the processor to provide or calculate filter coefficients instead of
     hard-coding them in the Verilog module.
 - Add a reproducible instruction-count and cycle-count comparison.
+- Synthesize in FPGA
 
 ## References
 
